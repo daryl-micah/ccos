@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
+    analytics,
     campaign_influencers,
     campaigns,
     deliverables,
@@ -20,3 +21,4 @@ api_router.include_router(posts.router)
 api_router.include_router(insights.router)
 api_router.include_router(metrics.router)
 api_router.include_router(reports.router)
+api_router.include_router(analytics.router)
