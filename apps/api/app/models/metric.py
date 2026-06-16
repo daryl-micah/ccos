@@ -12,17 +12,24 @@ from app.models.enums import MetricSource
 class Metric(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
     """Generic metric record (see REQUIREMENT_DOC "Metric System").
 
-    Scoped to a campaign-influencer by default, or to a specific live
-    Post when ``post_id`` is set. Avoids schema explosion and supports
+    Scoped to one of: a campaign-influencer (campaign context), a specific
+    live ``post``, or an ``influencer`` directly (e.g. Instagram profile
+    stats / historical snapshots). Avoids schema explosion and supports
     future integrations via ``source`` attribution.
     """
 
     __tablename__ = "metrics"
 
-    campaign_influencer_id: Mapped[uuid.UUID] = mapped_column(
+    campaign_influencer_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("campaign_influencers.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
+        index=True,
+    )
+    influencer_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("influencers.id", ondelete="CASCADE"),
+        nullable=True,
         index=True,
     )
     post_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -40,7 +47,8 @@ class Metric(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    campaign_influencer: Mapped["CampaignInfluencer"] = relationship(  # noqa: F821
+    campaign_influencer: Mapped["CampaignInfluencer | None"] = relationship(  # noqa: F821
         back_populates="metrics"
     )
+    influencer: Mapped["Influencer | None"] = relationship()  # noqa: F821
     post: Mapped["Post | None"] = relationship(back_populates="metrics")  # noqa: F821

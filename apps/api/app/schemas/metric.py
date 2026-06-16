@@ -9,7 +9,8 @@ from app.schemas.common import IDTimestamps
 
 
 class MetricBase(BaseModel):
-    campaign_influencer_id: uuid.UUID
+    campaign_influencer_id: uuid.UUID | None = None
+    influencer_id: uuid.UUID | None = None
     post_id: uuid.UUID | None = None
     metric_name: str
     metric_value: Decimal

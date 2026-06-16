@@ -18,6 +18,7 @@ async def list_metrics(
     skip: int = 0,
     limit: int = Query(100, le=500),
     campaign_influencer_id: uuid.UUID | None = None,
+    influencer_id: uuid.UUID | None = None,
     post_id: uuid.UUID | None = None,
     metric_name: str | None = None,
     source: str | None = None,
@@ -28,6 +29,7 @@ async def list_metrics(
         limit=limit,
         filters={
             "campaign_influencer_id": campaign_influencer_id,
+            "influencer_id": influencer_id,
             "post_id": post_id,
             "metric_name": metric_name,
             "source": source,
