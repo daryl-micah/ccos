@@ -164,6 +164,26 @@ export interface GroupRanking {
   category?: string;
 }
 
+// --- AI insights (Phase 8) ---
+
+export interface AIStatus {
+  configured: boolean;
+  provider: string;
+  model: string;
+}
+
+export interface AIRecommendation {
+  question: string;
+  answer: string;
+}
+
+export interface AIInsights {
+  summary: string;
+  insights: string[];
+  recommendations: AIRecommendation[];
+  model: string;
+}
+
 export interface CampaignRanking {
   campaign_id: string;
   name: string;

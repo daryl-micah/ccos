@@ -21,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AIInsightsCard } from "@/components/analytics/ai-insights";
 
 function roas(v: number | null): string {
   return v === null ? "—" : `${v.toFixed(2)}×`;
@@ -111,6 +112,8 @@ export default function AnalyticsPage() {
                 hint="Multi-campaign, ROAS ≥ 1×"
               />
             </div>
+
+            <AIInsightsCard />
 
             {/* Creators */}
             <Card>

@@ -1,4 +1,6 @@
 import type {
+  AIInsights,
+  AIStatus,
   Campaign,
   CampaignInfluencer,
   CampaignRanking,
@@ -128,6 +130,11 @@ export const api = {
     cities: () => request<GroupRanking[]>("/analytics/cities"),
     categories: () => request<GroupRanking[]>("/analytics/categories"),
     campaigns: () => request<CampaignRanking[]>("/analytics/campaigns"),
+  },
+  ai: {
+    status: () => request<AIStatus>("/ai/status"),
+    generateInsights: () =>
+      request<AIInsights>("/ai/insights", { method: "POST" }),
   },
   instagram: {
     status: () => request<InstagramStatus>("/instagram/status"),
