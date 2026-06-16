@@ -34,3 +34,6 @@ venv/
 *.sqlite3
 postgres-data/
 redis-data/
+
+# Instagram session store (Phase 3) — never commit sessions
+instagram_sessions/

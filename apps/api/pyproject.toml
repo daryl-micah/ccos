@@ -15,6 +15,7 @@ dependencies = [
     "greenlet>=3.1",
     "openpyxl>=3.1",
     "python-multipart>=0.0.12",
+    "instaloader>=4.13",
 ]
 
 [dependency-groups]

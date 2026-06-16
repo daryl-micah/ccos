@@ -15,6 +15,13 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://ccos:ccos@localhost:5433/ccos"
     redis_url: str = "redis://localhost:6379/0"
 
+    # Instagram (Phase 3). Login is required — connect from the UI, or set
+    # these env credentials for an automatic/server-side session. Sessions are
+    # persisted under ``instagram_session_dir`` (password is never stored).
+    instagram_username: str = ""
+    instagram_password: str = ""
+    instagram_session_dir: str = "instagram_sessions"
+
     # Comma-separated string in env (CORS_ORIGINS); use ``cors_origins`` for the list.
     cors_origins_raw: str = Field(
         default="http://localhost:3000", validation_alias="CORS_ORIGINS"

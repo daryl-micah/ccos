@@ -7,6 +7,7 @@ from app.api.routes import (
     deliverables,
     influencers,
     insights,
+    instagram,
     metrics,
     posts,
     reports,
@@ -22,3 +23,4 @@ api_router.include_router(insights.router)
 api_router.include_router(metrics.router)
 api_router.include_router(reports.router)
 api_router.include_router(analytics.router)
+api_router.include_router(instagram.router)

@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -7,9 +8,65 @@ from app.core.database import get_db
 from app.crud import CRUD
 from app.models import Influencer
 from app.schemas.influencer import InfluencerCreate, InfluencerOut, InfluencerUpdate
+from app.schemas.instagram import InstagramPostOut, InstagramSyncResult
+from app.services import instagram
 
 router = APIRouter(prefix="/influencers", tags=["influencers"])
 crud = CRUD(Influencer)
+
+
+@router.post("/{influencer_id}/sync-instagram", response_model=InstagramSyncResult)
+async def sync_instagram(
+    influencer_id: uuid.UUID,
+    max_posts: int = Query(instagram.DEFAULT_MAX_POSTS, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+):
+    """Collect Instagram profile + recent-post stats and store a snapshot."""
+    inf = await crud.get(db, influencer_id)
+    if inf is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Influencer not found")
+    if not inf.instagram_username:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "This influencer has no instagram_username set.",
+        )
+
+    handle = inf.instagram_username.lstrip("@").strip("/").split("/")[-1]
+    try:
+        # Instaloader is blocking; keep the event loop free.
+        profile = await asyncio.to_thread(instagram.fetch_profile, handle, max_posts)
+    except instagram.NotConnectedError as exc:
+        # 409 → the UI prompts the user to Connect Instagram.
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except instagram.InstagramError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+
+    metrics = await instagram.store_profile_metrics(db, inf, profile)
+    computed = instagram.compute_profile_metrics(profile)
+
+    return InstagramSyncResult(
+        username=profile.username,
+        is_private=profile.is_private,
+        followers=profile.followers,
+        following=profile.following,
+        post_count=profile.media_count,
+        avg_likes=computed["avg_likes"],
+        avg_comments=computed["avg_comments"],
+        engagement_rate=computed["engagement_rate"],
+        posting_frequency=computed["posting_frequency"],
+        top_posts=[
+            InstagramPostOut(
+                shortcode=p.shortcode,
+                likes=p.likes,
+                comments=p.comments,
+                timestamp=p.timestamp,
+                caption=p.caption,
+                url=p.url,
+            )
+            for p in instagram.top_posts(profile)
+        ],
+        metrics=metrics,
+    )
 
 
 @router.get("", response_model=list[InfluencerOut])
