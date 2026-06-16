@@ -5,12 +5,18 @@ import { use } from "react";
 import Link from "next/link";
 import { ArrowLeft, Instagram, Youtube } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import type { Campaign, CampaignInfluencer, Influencer } from "@/lib/types";
+import type {
+  Campaign,
+  CampaignInfluencer,
+  Influencer,
+  Metric,
+} from "@/lib/types";
 import { ciStatusVariant, titleCase } from "@/lib/status";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { InstagramCard } from "@/components/influencers/instagram-card";
 import {
   Table,
   TableBody,
@@ -30,20 +36,23 @@ export default function InfluencerDetailPage({
   const [influencer, setInfluencer] = React.useState<Influencer | null>(null);
   const [links, setLinks] = React.useState<CampaignInfluencer[]>([]);
   const [campaigns, setCampaigns] = React.useState<Campaign[]>([]);
+  const [igMetrics, setIgMetrics] = React.useState<Metric[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     (async () => {
       try {
-        const [inf, l, allCampaigns] = await Promise.all([
+        const [inf, l, allCampaigns, ig] = await Promise.all([
           api.influencers.get(id),
           api.campaignInfluencers.list({ influencer_id: id, limit: 500 }),
           api.campaigns.list({ limit: 500 }),
+          api.metrics.list({ influencer_id: id, source: "instagram", limit: 500 }),
         ]);
         setInfluencer(inf);
         setLinks(l);
         setCampaigns(allCampaigns);
+        setIgMetrics(ig);
       } catch (err) {
         setError(
           err instanceof ApiError
@@ -173,6 +182,12 @@ export default function InfluencerDetailPage({
             </CardContent>
           </Card>
         </div>
+
+        <InstagramCard
+          influencerId={id}
+          instagramUsername={influencer.instagram_username}
+          initialMetrics={igMetrics}
+        />
       </div>
     </>
   );

@@ -97,6 +97,37 @@ export interface Metric extends Timestamped {
   captured_at: string;
 }
 
+// --- Instagram (Phase 3) ---
+
+export interface InstagramStatus {
+  connected: boolean;
+  username: string | null;
+  source: "session" | "env" | null;
+}
+
+export interface InstagramPost {
+  shortcode: string;
+  likes: number;
+  comments: number;
+  timestamp: string;
+  caption: string;
+  url: string;
+}
+
+export interface InstagramSyncResult {
+  username: string;
+  is_private: boolean;
+  followers: number;
+  following: number;
+  post_count: number;
+  avg_likes: number;
+  avg_comments: number;
+  engagement_rate: number;
+  posting_frequency: number;
+  top_posts: InstagramPost[];
+  metrics: Metric[];
+}
+
 // --- Analytics (Phase 6) ---
 
 export interface CreatorRanking {

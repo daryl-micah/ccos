@@ -6,6 +6,8 @@ import type {
   Deliverable,
   GroupRanking,
   Influencer,
+  InstagramStatus,
+  InstagramSyncResult,
   Metric,
   Post,
 } from "./types";
@@ -83,8 +85,18 @@ export const api = {
   campaigns: resource<Campaign, Partial<Campaign>, Partial<Campaign>>(
     "campaigns",
   ),
-  influencers: resource<Influencer, Partial<Influencer>, Partial<Influencer>>(
-    "influencers",
+  influencers: Object.assign(
+    resource<Influencer, Partial<Influencer>, Partial<Influencer>>(
+      "influencers",
+    ),
+    {
+      /** Collect Instagram profile + recent-post stats (Phase 3). */
+      syncInstagram: (id: string, maxPosts = 12) =>
+        request<InstagramSyncResult>(
+          `/influencers/${id}/sync-instagram?max_posts=${maxPosts}`,
+          { method: "POST" },
+        ),
+    },
   ),
   campaignInfluencers: Object.assign(
     resource<
@@ -112,6 +124,15 @@ export const api = {
     cities: () => request<GroupRanking[]>("/analytics/cities"),
     categories: () => request<GroupRanking[]>("/analytics/categories"),
     campaigns: () => request<CampaignRanking[]>("/analytics/campaigns"),
+  },
+  instagram: {
+    status: () => request<InstagramStatus>("/instagram/status"),
+    login: (username: string, password: string) =>
+      request<InstagramStatus>("/instagram/login", {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+      }),
+    logout: () => request<void>("/instagram/logout", { method: "POST" }),
   },
   reports: {
     /** Direct download URL for a campaign's Excel report. */
