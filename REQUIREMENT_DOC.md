@@ -1003,6 +1003,27 @@ Running log of scope decisions made during development.
   Metric). UUID PKs, soft delete, and source-attributed metrics all in
   place. Local Postgres runs on host port **5433** (host 5432 was taken);
   backend pinned to **Python 3.12** via `uv`.
+* **Phase 1 frontend built** — Next.js 16 + Tailwind v4 + TanStack Table.
+  Dashboard (KPI cards + spend chart), Campaigns (list, create, detail
+  with creator roster), Influencers (list, create, cross-campaign detail).
+* **Live-post insights UI** — Creator-in-campaign page
+  (`/campaigns/[id]/creators/[ciId]`) to manage deliverables, paste live
+  post links, and record per-post insight metrics.
+* **CSV/Excel import-export shipped** — `GET /export/campaigns/{id}`
+  streams a readable .xlsx (Summary, Deliverables, Posts, Metrics sheets,
+  insights pivoted to columns); `POST /import/influencers` bulk-loads
+  creators from CSV/Excel with header aliasing. (Integration phase 1.)
+* **Metric engine shipped (Phase 2)** — engagement_rate, CPV, CPM, CPA,
+  ROAS computed from entered metrics, stored as `source=calculated`,
+  upserted in place. Manual entries of the same name always win. Recompute
+  per campaign-influencer and per campaign; surfaced as a Derived KPIs card.
+* **Analytics shipped (Phase 6)** — `/analytics/*` aggregates spend,
+  revenue, ROAS, CPV, engagement across campaigns by creator, city,
+  category, and campaign; flags repeat-collaboration candidates. Frontend
+  Analytics page with highlight cards + ranking tables.
+* **Full-stack Docker** — Dockerfiles for backend + frontend and a
+  docker-compose that runs db + redis + api + web. (Web image build is
+  network-bound on first native-binary pull; verification deferred.)
 
 ---
 
