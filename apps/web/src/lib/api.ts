@@ -138,6 +138,11 @@ export const api = {
   },
   instagram: {
     status: () => request<InstagramStatus>("/instagram/status"),
+    loginWithSession: (sessionid: string) =>
+      request<InstagramStatus>("/instagram/login", {
+        method: "POST",
+        body: JSON.stringify({ sessionid }),
+      }),
     login: (username: string, password: string) =>
       request<InstagramStatus>("/instagram/login", {
         method: "POST",
