@@ -13,5 +13,8 @@
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down"
   },
-  "packageManager": "pnpm@11.1.1"
+  "packageManager": "pnpm@11.1.1",
+  "pnpm": {
+    "onlyBuiltDependencies": ["sharp", "unrs-resolver"]
+  }
 }

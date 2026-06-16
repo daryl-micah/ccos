@@ -1,3 +1,12 @@
 packages:
   - "apps/*"
   - "packages/*"
+onlyBuiltDependencies:
+  - sharp
+  - unrs-resolver
+allowBuilds:
+  sharp: true
+  unrs-resolver: true
+# pnpm 11 runs `pnpm install` before every `pnpm <script>`; skip it so the
+# native-build approval gate can't abort builds/dev.
+verifyDepsBeforeRun: false
