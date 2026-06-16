@@ -11,9 +11,20 @@ from app.schemas.campaign_influencer import (
     CampaignInfluencerOut,
     CampaignInfluencerUpdate,
 )
+from app.schemas.metric import MetricOut
+from app.services.metric_engine import recompute_for_ci_id
 
 router = APIRouter(prefix="/campaign-influencers", tags=["campaign-influencers"])
 crud = CRUD(CampaignInfluencer)
+
+
+@router.post("/{ci_id}/recompute-metrics", response_model=list[MetricOut])
+async def recompute_metrics(ci_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """Recompute derived KPIs (engagement_rate, CPV, CPM, CPA, ROAS)."""
+    written = await recompute_for_ci_id(db, ci_id)
+    if written is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "CampaignInfluencer not found")
+    return written
 
 
 @router.get("", response_model=list[CampaignInfluencerOut])

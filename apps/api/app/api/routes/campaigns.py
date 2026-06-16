@@ -7,9 +7,22 @@ from app.core.database import get_db
 from app.crud import CRUD
 from app.models import Campaign
 from app.schemas.campaign import CampaignCreate, CampaignOut, CampaignUpdate
+from app.schemas.metric import MetricOut
+from app.services.metric_engine import recompute_for_campaign
 
 router = APIRouter(prefix="/campaigns", tags=["campaigns"])
 crud = CRUD(Campaign)
+
+
+@router.post("/{campaign_id}/recompute-metrics", response_model=list[MetricOut])
+async def recompute_campaign_metrics(
+    campaign_id: uuid.UUID, db: AsyncSession = Depends(get_db)
+):
+    """Recompute derived KPIs for every creator in the campaign."""
+    obj = await crud.get(db, campaign_id)
+    if obj is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Campaign not found")
+    return await recompute_for_campaign(db, campaign_id)
 
 
 @router.get("", response_model=list[CampaignOut])
