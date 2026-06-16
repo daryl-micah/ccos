@@ -38,10 +38,11 @@
   --powder-petal: #f3d8c7;
   --soft-linen: #efe5dc;
 
-  /* Semantic tokens mapped onto the brand palette */
-  --background: #efe5dc; /* Soft Linen */
+  /* Semantic tokens mapped onto the brand palette.
+     Main content sits on warm white; the sidebar uses Soft Linen. */
+  --background: #fffaf6; /* warm white — main content area */
   --foreground: #2b211b; /* warm near-black for readable text */
-  --card: #fffaf6; /* warm white, lifts above the linen background */
+  --card: #ffffff; /* pure white, lifts above the warm-white background */
   --card-foreground: #2b211b;
   --muted: #f3d8c7; /* Powder Petal */
   --muted-foreground: #6b5d54;

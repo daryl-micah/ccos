@@ -10,14 +10,15 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b px-8 py-5">
-      <div>
+    <div>
+      {/* Fixed-height bar so its divider aligns with the sidebar's. */}
+      <div className="flex h-16 items-center justify-between gap-4 border-b px-8">
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-        {description ? (
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        ) : null}
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
-      {action ? <div className="shrink-0">{action}</div> : null}
+      {description ? (
+        <p className="px-8 pt-6 text-sm text-muted-foreground">{description}</p>
+      ) : null}
     </div>
   );
 }

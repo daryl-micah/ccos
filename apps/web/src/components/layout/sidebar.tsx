@@ -16,8 +16,8 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r bg-card">
-      <div className="flex h-14 items-center border-b px-6">
+    <aside className="flex w-60 shrink-0 flex-col border-r bg-soft-linen">
+      <div className="flex h-16 items-center border-b px-6">
         <Link href="/" className="font-semibold tracking-tight">
           CCOS
         </Link>
