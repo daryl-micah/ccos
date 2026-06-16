@@ -1,18 +1,51 @@
 import asyncio
 import uuid
+from collections import defaultdict
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.crud import CRUD
-from app.models import Influencer
+from app.models import Influencer, Metric
 from app.schemas.influencer import InfluencerCreate, InfluencerOut, InfluencerUpdate
 from app.schemas.instagram import InstagramPostOut, InstagramSyncResult
+from app.schemas.trends import TrendPoint
 from app.services import instagram
 
 router = APIRouter(prefix="/influencers", tags=["influencers"])
 crud = CRUD(Influencer)
+
+
+@router.get("/{influencer_id}/trends", response_model=dict[str, list[TrendPoint]])
+async def influencer_trends(
+    influencer_id: uuid.UUID,
+    days: int = Query(180, ge=1, le=1095),
+    db: AsyncSession = Depends(get_db),
+):
+    """Time series of influencer-scoped metrics (for growth charts, Phase 5)."""
+    inf = await crud.get(db, influencer_id)
+    if inf is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Influencer not found")
+
+    since = func.now() - timedelta(days=days)
+    rows = await db.scalars(
+        select(Metric)
+        .where(
+            Metric.influencer_id == influencer_id,
+            Metric.deleted_at.is_(None),
+            Metric.captured_at >= since,
+        )
+        .order_by(Metric.captured_at)
+    )
+    series: dict[str, list[TrendPoint]] = defaultdict(list)
+    for m in rows:
+        series[m.metric_name].append(
+            TrendPoint(captured_at=m.captured_at, value=float(m.metric_value))
+        )
+    return series
 
 
 @router.post("/{influencer_id}/sync-instagram", response_model=InstagramSyncResult)

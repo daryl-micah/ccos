@@ -31,3 +31,12 @@ async def instagram_login(body: InstagramLoginRequest):
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def instagram_logout():
     await asyncio.to_thread(instagram.logout)
+
+
+@router.post("/collect-now")
+async def collect_now():
+    """Queue a snapshot of every influencer's Instagram stats (needs a worker)."""
+    from app.worker import celery_app
+
+    result = celery_app.send_task("app.tasks.collect_all_instagram")
+    return {"task_id": result.id, "status": "queued"}

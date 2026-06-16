@@ -64,6 +64,35 @@ services:
     depends_on:
       - api
 
+  # Phase 5 background jobs. Reuse the api image; just change the command.
+  worker:
+    build:
+      context: ./apps/api
+    container_name: ccos-worker
+    restart: unless-stopped
+    command: celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ccos:ccos@postgres:5432/ccos
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  beat:
+    build:
+      context: ./apps/api
+    container_name: ccos-beat
+    restart: unless-stopped
+    command: celery -A app.worker.celery_app beat --loglevel=info
+    environment:
+      DATABASE_URL: postgresql+asyncpg://ccos:ccos@postgres:5432/ccos
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+
 volumes:
   postgres-data:
   redis-data:
