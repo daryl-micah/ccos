@@ -32,6 +32,38 @@ services:
       timeout: 5s
       retries: 5
 
+  api:
+    build:
+      context: ./apps/api
+    container_name: ccos-api
+    restart: unless-stopped
+    environment:
+      # In-container service names (not host ports).
+      DATABASE_URL: postgresql+asyncpg://ccos:ccos@postgres:5432/ccos
+      REDIS_URL: redis://redis:6379/0
+      CORS_ORIGINS: http://localhost:3000
+      ENV: production
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./apps/web
+      args:
+        # Baked into client JS; must be the API URL as seen from the browser.
+        NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    container_name: ccos-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
 volumes:
   postgres-data:
   redis-data:
