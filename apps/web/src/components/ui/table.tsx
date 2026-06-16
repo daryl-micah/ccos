@@ -65,16 +65,7 @@ function TableCell({
   className,
   ...props
 }: React.TdHTMLAttributes<HTMLTableCellElement>) {
-  return (
-    <td className={cn("p-3 align-middle", className)} {...props} />
-  );
+  return <td className={cn("p-3 align-middle", className)} {...props} />;
 }
 
-export {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-};
+export { Table, TableHeader, TableBody, TableRow, TableHead, TableCell };

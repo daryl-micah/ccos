@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { InfluencerForm } from "@/components/influencers/influencer-form";
+import { ImportButton } from "@/components/influencers/import-button";
 
 export default function InfluencersPage() {
   const [influencers, setInfluencers] = React.useState<Influencer[]>([]);
@@ -115,9 +116,16 @@ export default function InfluencersPage() {
         title="Influencers"
         description="Your master creator database."
         action={
-          <Button onClick={() => setShowForm(true)}>
-            <Plus /> New influencer
-          </Button>
+          <div className="flex gap-2">
+            <ImportButton
+              onImported={(created) =>
+                setInfluencers((prev) => [...created, ...prev])
+              }
+            />
+            <Button onClick={() => setShowForm(true)}>
+              <Plus /> New influencer
+            </Button>
+          </div>
         }
       />
       <div className="p-8">

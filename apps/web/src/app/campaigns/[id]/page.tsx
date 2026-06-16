@@ -3,7 +3,7 @@
 import * as React from "react";
 import { use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Plus, Trash2 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import type { Campaign, CampaignInfluencer, Influencer } from "@/lib/types";
 import { campaignStatusVariant, ciStatusVariant, titleCase } from "@/lib/status";
@@ -104,9 +104,16 @@ export default function CampaignDetailPage({
         title={campaign.name}
         description={campaign.brand ?? undefined}
         action={
-          <Button onClick={() => setShowAdd(true)}>
-            <Plus /> Add creator
-          </Button>
+          <div className="flex gap-2">
+            <a href={api.reports.exportCampaignUrl(id)}>
+              <Button variant="outline">
+                <Download /> Export Excel
+              </Button>
+            </a>
+            <Button onClick={() => setShowAdd(true)}>
+              <Plus /> Add creator
+            </Button>
+          </div>
         }
       />
       <div className="space-y-6 p-8">

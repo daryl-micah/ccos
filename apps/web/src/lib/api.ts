@@ -95,6 +95,35 @@ export const api = {
   >("deliverables"),
   posts: resource<Post, Partial<Post>, Partial<Post>>("posts"),
   metrics: resource<Metric, Partial<Metric>, Partial<Metric>>("metrics"),
+  reports: {
+    /** Direct download URL for a campaign's Excel report. */
+    exportCampaignUrl: (campaignId: string) =>
+      `${BASE_URL}/export/campaigns/${campaignId}`,
+    /** Upload a CSV/Excel file to bulk-create influencers. */
+    importInfluencers: async (file: File): Promise<ImportResult> => {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch(`${BASE_URL}/import/influencers`, {
+        method: "POST",
+        body,
+      });
+      if (!res.ok) {
+        let detail = res.statusText;
+        try {
+          detail = (await res.json()).detail ?? detail;
+        } catch {
+          // ignore
+        }
+        throw new ApiError(res.status, detail);
+      }
+      return res.json() as Promise<ImportResult>;
+    },
+  },
 };
+
+export interface ImportResult {
+  created: number;
+  created_influencers: Influencer[];
+}
 
 export { ApiError };
