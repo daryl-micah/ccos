@@ -83,11 +83,20 @@ export const api = {
   influencers: resource<Influencer, Partial<Influencer>, Partial<Influencer>>(
     "influencers",
   ),
-  campaignInfluencers: resource<
-    CampaignInfluencer,
-    Partial<CampaignInfluencer>,
-    Partial<CampaignInfluencer>
-  >("campaign-influencers"),
+  campaignInfluencers: Object.assign(
+    resource<
+      CampaignInfluencer,
+      Partial<CampaignInfluencer>,
+      Partial<CampaignInfluencer>
+    >("campaign-influencers"),
+    {
+      /** Recompute derived KPIs; returns the calculated metric rows. */
+      recomputeMetrics: (id: string) =>
+        request<Metric[]>(`/campaign-influencers/${id}/recompute-metrics`, {
+          method: "POST",
+        }),
+    },
+  ),
   deliverables: resource<
     Deliverable,
     Partial<Deliverable>,

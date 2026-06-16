@@ -36,6 +36,7 @@ import { Modal } from "@/components/ui/modal";
 import { DeliverableForm } from "@/components/creators/deliverable-form";
 import { PostForm } from "@/components/creators/post-form";
 import { PostMetricForm } from "@/components/creators/post-metric-form";
+import { DerivedKpis } from "@/components/creators/derived-kpis";
 
 export default function CreatorDetailPage({
   params,
@@ -152,6 +153,26 @@ export default function CreatorDetailPage({
           <Summary label="Deliverables">{String(deliverables.length)}</Summary>
           <Summary label="Live posts">{String(posts.length)}</Summary>
         </div>
+
+        <DerivedKpis
+          campaignInfluencerId={ciId}
+          metrics={metrics}
+          onRecomputed={(calculated) => {
+            const names = new Set(calculated.map((m) => m.metric_name));
+            setMetrics((prev) => [
+              // drop superseded CI-level calculated rows, keep everything else
+              ...prev.filter(
+                (m) =>
+                  !(
+                    m.source === "calculated" &&
+                    !m.post_id &&
+                    names.has(m.metric_name)
+                  ),
+              ),
+              ...calculated,
+            ]);
+          }}
+        />
 
         {/* Deliverables */}
         <Card>
