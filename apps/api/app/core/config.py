@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     instagram_password: str = ""
     instagram_session_dir: str = "instagram_sessions"
 
+    # AI layer (Phase 8) — powered by Groq. Leave the key blank to disable.
+    groq_api_key: str = ""
+    groq_model: str = "llama-3.3-70b-versatile"
+
     # Comma-separated string in env (CORS_ORIGINS); use ``cors_origins`` for the list.
     cors_origins_raw: str = Field(
         default="http://localhost:3000", validation_alias="CORS_ORIGINS"

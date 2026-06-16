@@ -17,6 +17,7 @@ dependencies = [
     "python-multipart>=0.0.12",
     "instaloader>=4.13",
     "celery[redis]>=5.4",
+    "groq>=0.13",
 ]
 
 [dependency-groups]
