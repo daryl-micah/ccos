@@ -10,6 +10,7 @@ import type {
   InstagramSyncResult,
   Metric,
   Post,
+  Trends,
 } from "./types";
 
 const BASE_URL =
@@ -96,6 +97,9 @@ export const api = {
           `/influencers/${id}/sync-instagram?max_posts=${maxPosts}`,
           { method: "POST" },
         ),
+      /** Historical time series of influencer-scoped metrics (Phase 5). */
+      trends: (id: string, days = 180) =>
+        request<Trends>(`/influencers/${id}/trends?days=${days}`),
     },
   ),
   campaignInfluencers: Object.assign(

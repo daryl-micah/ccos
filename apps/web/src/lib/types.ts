@@ -97,6 +97,15 @@ export interface Metric extends Timestamped {
   captured_at: string;
 }
 
+// --- Trends / historical tracking (Phase 5) ---
+
+export interface TrendPoint {
+  captured_at: string;
+  value: number;
+}
+
+export type Trends = Record<string, TrendPoint[]>;
+
 // --- Instagram (Phase 3) ---
 
 export interface InstagramStatus {
