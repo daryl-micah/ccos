@@ -96,3 +96,41 @@ export interface Metric extends Timestamped {
   source: MetricSource;
   captured_at: string;
 }
+
+// --- Analytics (Phase 6) ---
+
+export interface CreatorRanking {
+  influencer_id: string;
+  name: string;
+  city: string | null;
+  category: string | null;
+  campaigns: number;
+  spend: number;
+  revenue: number;
+  roas: number | null;
+  cpv: number | null;
+  avg_engagement_rate: number | null;
+  repeat_candidate: boolean;
+}
+
+export interface GroupRanking {
+  creators: number;
+  spend: number;
+  revenue: number;
+  roas: number | null;
+  cpv: number | null;
+  avg_engagement_rate: number | null;
+  city?: string;
+  category?: string;
+}
+
+export interface CampaignRanking {
+  campaign_id: string;
+  name: string;
+  status: string | null;
+  creators: number;
+  spend: number;
+  revenue: number;
+  roas: number | null;
+  avg_engagement_rate: number | null;
+}

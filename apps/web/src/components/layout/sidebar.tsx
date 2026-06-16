@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Megaphone, Users } from "lucide-react";
+import { BarChart3, LayoutDashboard, Megaphone, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/influencers", label: "Influencers", icon: Users },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
 ];
 
 export function Sidebar() {

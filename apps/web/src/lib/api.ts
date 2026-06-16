@@ -1,7 +1,10 @@
 import type {
   Campaign,
   CampaignInfluencer,
+  CampaignRanking,
+  CreatorRanking,
   Deliverable,
+  GroupRanking,
   Influencer,
   Metric,
   Post,
@@ -104,6 +107,12 @@ export const api = {
   >("deliverables"),
   posts: resource<Post, Partial<Post>, Partial<Post>>("posts"),
   metrics: resource<Metric, Partial<Metric>, Partial<Metric>>("metrics"),
+  analytics: {
+    creators: () => request<CreatorRanking[]>("/analytics/creators"),
+    cities: () => request<GroupRanking[]>("/analytics/cities"),
+    categories: () => request<GroupRanking[]>("/analytics/categories"),
+    campaigns: () => request<CampaignRanking[]>("/analytics/campaigns"),
+  },
   reports: {
     /** Direct download URL for a campaign's Excel report. */
     exportCampaignUrl: (campaignId: string) =>
