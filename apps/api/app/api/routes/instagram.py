@@ -18,11 +18,22 @@ async def instagram_status():
 
 @router.post("/login", response_model=InstagramStatus)
 async def instagram_login(body: InstagramLoginRequest):
-    """Connect Instagram by logging in; persists a session (not the password)."""
+    """Connect Instagram. Prefer a browser ``sessionid`` (Instagram blocks
+    Instaloader's username/password login); persists only the session."""
     try:
-        result = await asyncio.to_thread(
-            instagram.login, body.username.strip(), body.password
-        )
+        if body.sessionid:
+            result = await asyncio.to_thread(
+                instagram.login_with_sessionid, body.sessionid
+            )
+        elif body.username and body.password:
+            result = await asyncio.to_thread(
+                instagram.login, body.username.strip(), body.password
+            )
+        else:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Provide a sessionid, or both username and password.",
+            )
     except instagram.InstagramError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     return result
