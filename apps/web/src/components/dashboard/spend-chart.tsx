@@ -27,15 +27,15 @@ export function SpendChart({ data }: { data: SpendDatum[] }) {
   return (
     <ResponsiveContainer width="100%" height={256}>
       <BarChart data={data} margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#e6d6ca" vertical={false} />
         <XAxis
           dataKey="name"
-          tick={{ fontSize: 12, fill: "#71717a" }}
+          tick={{ fontSize: 12, fill: "#6b5d54" }}
           tickLine={false}
           axisLine={false}
         />
         <YAxis
-          tick={{ fontSize: 12, fill: "#71717a" }}
+          tick={{ fontSize: 12, fill: "#6b5d54" }}
           tickLine={false}
           axisLine={false}
           width={70}
@@ -56,9 +56,9 @@ export function SpendChart({ data }: { data: SpendDatum[] }) {
               maximumFractionDigits: 0,
             }).format(v as number)
           }
-          cursor={{ fill: "#f4f4f5" }}
+          cursor={{ fill: "#f7e7da" }}
         />
-        <Bar dataKey="spend" fill="#18181b" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="spend" fill="#b89a8a" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

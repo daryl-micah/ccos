@@ -1024,6 +1024,14 @@ Running log of scope decisions made during development.
 * **Full-stack Docker** — Dockerfiles for backend + frontend and a
   docker-compose that runs db + redis + api + web. (Web image build is
   network-bound on first native-binary pull; verification deferred.)
+* **Brand palette established** — warm, soft neutrals:
+  * Almond Silk `#d0b8ac` — borders, inputs, focus rings, chart accent
+  * Powder Petal `#f3d8c7` — secondary/accent surfaces, active nav, badges
+  * Soft Linen `#efe5dc` — app background
+
+  Wired into the Tailwind v4 design tokens in `apps/web/src/app/globals.css`
+  (also exposed as `bg-almond-silk` / `bg-powder-petal` / `bg-soft-linen`
+  utilities). Primary actions stay a warm near-black for contrast.
 
 ---
 
