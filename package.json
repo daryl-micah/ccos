@@ -1,0 +1,17 @@
+{
+  "name": "ccos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Creator Campaign Operating System — campaign-centric influencer CRM",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "pnpm --filter @ccos/web dev",
+    "build:web": "pnpm --filter @ccos/web build",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down"
+  },
+  "packageManager": "pnpm@11.1.1"
+}
