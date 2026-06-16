@@ -172,16 +172,12 @@ export default function CampaignDetailPage({
                     return (
                       <TableRow key={l.id}>
                         <TableCell className="font-medium">
-                          {inf ? (
-                            <Link
-                              href={`/influencers/${inf.id}`}
-                              className="hover:underline"
-                            >
-                              {inf.name}
-                            </Link>
-                          ) : (
-                            "Unknown"
-                          )}
+                          <Link
+                            href={`/campaigns/${id}/creators/${l.id}`}
+                            className="hover:underline"
+                          >
+                            {inf ? inf.name : "Unknown creator"}
+                          </Link>
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {inf?.city ?? "—"}
