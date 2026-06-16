@@ -1024,12 +1024,14 @@ Running log of scope decisions made during development.
 * **Full-stack Docker** — Dockerfiles for backend + frontend and a
   docker-compose that runs db + redis + api + web. (Web image build is
   network-bound on first native-binary pull; verification deferred.)
-* **Instagram requires login (Phase 3)** — Instaloader needs no Graph API
-  token, but Instagram blocks anonymous scraping, so the app has a
-  session-based **Connect Instagram** login flow (login/status/logout;
-  password never stored, only the session). Syncing while disconnected
-  returns 409 so the UI prompts login. Profile stats are stored as
-  influencer-scoped metrics (each sync a timestamped snapshot).
+* **Instagram requires login (Phase 3)** — collector uses **instagrapi**
+  (switched from Instaloader, whose password login Instagram blocks with
+  "Unexpected null login result"). Session-based **Connect Instagram** flow
+  with two methods: a browser **sessionid** cookie (recommended/reliable)
+  and username/password. Only the session is persisted, never the password.
+  Syncing while disconnected returns 409 so the UI prompts login. Profile
+  stats stored as influencer-scoped metrics (each sync a timestamped
+  snapshot).
 * **Historical tracking shipped (Phase 5)** — Celery worker + beat
   (daily Instagram snapshot at 03:00 UTC) and a recompute task; a trends
   endpoint powers a growth-over-time chart on the influencer page. Metrics
