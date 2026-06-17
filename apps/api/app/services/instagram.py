@@ -22,7 +22,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import CampaignInfluencer, Influencer, Metric, Post
 from app.models.enums import MetricSource
 
-DEFAULT_MAX_POSTS = 12
+# Average over a wider window so per-post averages are stable and closer to
+# what tools like HypeAuditor report (they sample ~30 posts).
+DEFAULT_MAX_POSTS = 30
 
 
 class InstagramError(Exception):

@@ -95,7 +95,7 @@ export const api = {
     ),
     {
       /** Collect Instagram profile + recent-post stats (Phase 3). */
-      syncInstagram: (id: string, maxPosts = 12) =>
+      syncInstagram: (id: string, maxPosts = 30) =>
         request<InstagramSyncResult>(
           `/influencers/${id}/sync-instagram?max_posts=${maxPosts}`,
           { method: "POST" },
