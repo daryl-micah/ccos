@@ -12,6 +12,7 @@ import type {
   InstagramSyncResult,
   Metric,
   Post,
+  PostMetricsResult,
   Trends,
 } from "./types";
 
@@ -123,7 +124,16 @@ export const api = {
     Partial<Deliverable>,
     Partial<Deliverable>
   >("deliverables"),
-  posts: resource<Post, Partial<Post>, Partial<Post>>("posts"),
+  posts: Object.assign(
+    resource<Post, Partial<Post>, Partial<Post>>("posts"),
+    {
+      /** Fetch a live post's stats (likes, comments, views, ER%) from Instagram. */
+      syncMetrics: (id: string) =>
+        request<PostMetricsResult>(`/posts/${id}/sync-metrics`, {
+          method: "POST",
+        }),
+    },
+  ),
   metrics: resource<Metric, Partial<Metric>, Partial<Metric>>("metrics"),
   analytics: {
     creators: () => request<CreatorRanking[]>("/analytics/creators"),

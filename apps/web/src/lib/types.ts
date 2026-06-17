@@ -97,6 +97,16 @@ export interface Metric extends Timestamped {
   captured_at: string;
 }
 
+export interface PostMetricsResult {
+  likes: number;
+  comments: number;
+  views: number | null;
+  engagement_rate: number | null;
+  followers: number | null;
+  shares_available: boolean;
+  metrics: Metric[];
+}
+
 // --- Trends / historical tracking (Phase 5) ---
 
 export interface TrendPoint {

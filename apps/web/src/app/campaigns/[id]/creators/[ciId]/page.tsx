@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ExternalLink,
   Plus,
+  RefreshCw,
   Trash2,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
@@ -55,6 +56,8 @@ export default function CreatorDetailPage({
   const [error, setError] = React.useState<string | null>(null);
   const [showDeliverable, setShowDeliverable] = React.useState(false);
   const [showPost, setShowPost] = React.useState(false);
+  const [syncingPost, setSyncingPost] = React.useState<string | null>(null);
+  const [postSyncError, setPostSyncError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     (async () => {
@@ -110,6 +113,31 @@ export default function CreatorDetailPage({
   async function deleteMetric(metricId: string) {
     await api.metrics.remove(metricId);
     setMetrics((prev) => prev.filter((m) => m.id !== metricId));
+  }
+
+  async function syncPostMetrics(postId: string) {
+    setSyncingPost(postId);
+    setPostSyncError(null);
+    try {
+      const res = await api.posts.syncMetrics(postId);
+      // Replace this post's Instagram metrics; manual entries stay.
+      setMetrics((prev) => [
+        ...prev.filter(
+          (m) => !(m.post_id === postId && m.source === "instagram"),
+        ),
+        ...res.metrics,
+      ]);
+    } catch (err) {
+      setPostSyncError(
+        err instanceof ApiError && err.status === 409
+          ? "Connect Instagram (on the influencer's page) to fetch post metrics."
+          : err instanceof ApiError
+            ? err.message
+            : "Could not fetch post metrics.",
+      );
+    } finally {
+      setSyncingPost(null);
+    }
   }
 
   if (loading) {
@@ -236,6 +264,14 @@ export default function CreatorDetailPage({
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
+            <p className="text-xs text-muted-foreground">
+              Instagram posts auto-fetch likes, comments, views & engagement on
+              add — or hit sync. Shares & reposts aren&apos;t exposed by
+              Instagram&apos;s API.
+            </p>
+            {postSyncError ? (
+              <p className="text-sm text-destructive">{postSyncError}</p>
+            ) : null}
             {posts.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No live posts yet. Paste a published post link to start tracking
@@ -262,14 +298,34 @@ export default function CreatorDetailPage({
                         ) : null}
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deletePost(post.id)}
-                      aria-label="Delete post"
-                    >
-                      <Trash2 className="text-muted-foreground" />
-                    </Button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {post.platform === "instagram" ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => syncPostMetrics(post.id)}
+                          disabled={syncingPost === post.id}
+                          aria-label="Sync post metrics"
+                          title="Fetch likes, comments & ER% from Instagram"
+                        >
+                          <RefreshCw
+                            className={
+                              syncingPost === post.id
+                                ? "animate-spin text-muted-foreground"
+                                : "text-muted-foreground"
+                            }
+                          />
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deletePost(post.id)}
+                        aria-label="Delete post"
+                      >
+                        <Trash2 className="text-muted-foreground" />
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -341,6 +397,7 @@ export default function CreatorDetailPage({
           onCreated={(p) => {
             setPosts((prev) => [...prev, p]);
             setShowPost(false);
+            if (p.platform === "instagram") syncPostMetrics(p.id);
           }}
         />
       </Modal>
