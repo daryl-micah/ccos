@@ -9,12 +9,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConnectInstagramModal } from "@/components/influencers/connect-instagram";
 
-const FIELDS: { name: string; label: string; suffix?: string }[] = [
+// `decimals` keeps fractional precision for rate-style metrics; count metrics
+// (followers, likes, comments, posts) render as whole numbers.
+const FIELDS: {
+  name: string;
+  label: string;
+  suffix?: string;
+  decimals?: boolean;
+}[] = [
   { name: "followers", label: "Followers" },
   { name: "avg_likes", label: "Avg likes" },
   { name: "avg_comments", label: "Avg comments" },
-  { name: "engagement_rate", label: "Engagement", suffix: "%" },
-  { name: "posting_frequency", label: "Posts/wk" },
+  { name: "engagement_rate", label: "Engagement", suffix: "%", decimals: true },
+  { name: "posting_frequency", label: "Posts/wk", decimals: true },
   { name: "post_count", label: "Total posts" },
 ];
 
@@ -155,7 +162,11 @@ export function InstagramCard({
                     </div>
                     <div className="mt-1 text-lg font-semibold">
                       {f.name in values
-                        ? `${formatNumber(Math.round(values[f.name] * 100) / 100)}${f.suffix ?? ""}`
+                        ? `${formatNumber(
+                            f.decimals
+                              ? Math.round(values[f.name] * 100) / 100
+                              : Math.round(values[f.name]),
+                          )}${f.suffix ?? ""}`
                         : "—"}
                     </div>
                   </div>
