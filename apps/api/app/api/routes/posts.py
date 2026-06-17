@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -6,10 +7,44 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.crud import CRUD
 from app.models import Post
-from app.schemas.post import PostCreate, PostOut, PostUpdate
+from app.schemas.post import PostCreate, PostMetricsResult, PostOut, PostUpdate
+from app.services import instagram
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 crud = CRUD(Post)
+
+
+@router.post("/{post_id}/sync-metrics", response_model=PostMetricsResult)
+async def sync_post_metrics(post_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    """Fetch a live post's stats (likes, comments, views, ER%) from Instagram."""
+    post = await crud.get(db, post_id)
+    if post is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Post not found")
+    if post.platform != "instagram":
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Automatic metrics are only available for Instagram posts.",
+        )
+
+    try:
+        stats = await asyncio.to_thread(instagram.fetch_post, post.url)
+    except instagram.NotConnectedError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except instagram.InstagramError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+
+    rows, engagement_rate, followers = await instagram.store_post_metrics(
+        db, post, stats
+    )
+    return PostMetricsResult(
+        likes=stats.likes,
+        comments=stats.comments,
+        views=stats.views,
+        engagement_rate=engagement_rate,
+        followers=int(followers) if followers else None,
+        shares_available=False,
+        metrics=rows,
+    )
 
 
 @router.get("", response_model=list[PostOut])

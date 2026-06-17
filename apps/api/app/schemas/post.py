@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from app.models.enums import Platform
 from app.schemas.common import IDTimestamps
+from app.schemas.metric import MetricOut
 
 
 class PostBase(BaseModel):
@@ -30,3 +31,13 @@ class PostUpdate(BaseModel):
 
 class PostOut(PostBase, IDTimestamps):
     pass
+
+
+class PostMetricsResult(BaseModel):
+    likes: int
+    comments: int
+    views: int | None = None
+    engagement_rate: float | None = None
+    followers: int | None = None
+    shares_available: bool = False  # Instagram doesn't expose shares/reposts
+    metrics: list[MetricOut]

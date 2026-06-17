@@ -16,9 +16,10 @@ from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Influencer, Metric
+from app.models import CampaignInfluencer, Influencer, Metric, Post
 from app.models.enums import MetricSource
 
 DEFAULT_MAX_POSTS = 12
@@ -50,6 +51,17 @@ class IgProfile:
     media_count: int
     is_private: bool
     posts: list[IgPost]
+
+
+@dataclass
+class PostStats:
+    likes: int
+    comments: int
+    views: int | None  # video/reel plays; None for photos
+    is_video: bool
+    # Instagram's API does not expose share or repost counts.
+    shares: int | None = None
+    reposts: int | None = None
 
 
 # --- Pure aggregation (testable without network) ----------------------------
@@ -282,3 +294,104 @@ async def store_profile_metrics(
     for row in rows:
         await db.refresh(row)
     return rows
+
+
+# --- Per-post insights ------------------------------------------------------
+
+
+def fetch_post(url: str) -> PostStats:
+    """Fetch a single post's stats by URL (likes, comments, views)."""
+    from instagrapi.exceptions import LoginRequired, MediaNotFound
+
+    client = _authenticated_client()  # raises NotConnectedError if not logged in
+
+    try:
+        media_pk = client.media_pk_from_url(url)
+        media = client.media_info(media_pk)
+    except MediaNotFound as exc:
+        raise InstagramError("That post was not found or is private.") from exc
+    except LoginRequired as exc:
+        raise NotConnectedError(
+            "Instagram session expired. Reconnect Instagram."
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise InstagramError(f"Could not load the post: {exc}") from exc
+
+    is_video = media.media_type == 2
+    views = (media.view_count or media.play_count) if is_video else None
+    return PostStats(
+        likes=media.like_count or 0,
+        comments=media.comment_count or 0,
+        views=views,
+        is_video=is_video,
+    )
+
+
+async def _latest_followers(db: AsyncSession, influencer_id) -> float | None:
+    row = await db.scalar(
+        select(Metric)
+        .where(
+            Metric.influencer_id == influencer_id,
+            Metric.metric_name == "followers",
+            Metric.deleted_at.is_(None),
+        )
+        .order_by(Metric.captured_at.desc())
+        .limit(1)
+    )
+    return float(row.metric_value) if row else None
+
+
+async def store_post_metrics(
+    db: AsyncSession, post: Post, stats: PostStats
+) -> tuple[list[Metric], float | None, float | None]:
+    """Store post-scoped metrics; returns (rows, engagement_rate, followers).
+
+    Engagement rate = (likes + comments) / followers * 100, using the
+    influencer's most recent followers snapshot. Replaces any prior
+    Instagram-sourced metrics for this post (manual entries are kept).
+    """
+    ci = await db.get(CampaignInfluencer, post.campaign_influencer_id)
+    followers = await _latest_followers(db, ci.influencer_id) if ci else None
+
+    engagement_rate = (
+        round((stats.likes + stats.comments) / followers * 100, 4)
+        if followers
+        else None
+    )
+
+    values: dict[str, float] = {
+        "likes": float(stats.likes),
+        "comments": float(stats.comments),
+    }
+    if stats.views is not None:
+        values["views"] = float(stats.views)
+    if engagement_rate is not None:
+        values["engagement_rate"] = engagement_rate
+
+    # Replace previous Instagram-sourced metrics for this post (idempotent
+    # re-sync); manual entries always win and are left untouched.
+    existing = await db.scalars(
+        select(Metric).where(
+            Metric.post_id == post.id,
+            Metric.source == MetricSource.INSTAGRAM,
+            Metric.deleted_at.is_(None),
+        )
+    )
+    for old in existing.all():
+        old.deleted_at = func.now()
+
+    rows: list[Metric] = []
+    for name, value in values.items():
+        row = Metric(
+            campaign_influencer_id=post.campaign_influencer_id,
+            post_id=post.id,
+            metric_name=name,
+            metric_value=Decimal(str(value)),
+            source=MetricSource.INSTAGRAM,
+        )
+        db.add(row)
+        rows.append(row)
+    await db.flush()
+    for row in rows:
+        await db.refresh(row)
+    return rows, engagement_rate, followers
