@@ -30,7 +30,7 @@ export function CampaignForm({
       name: String(form.get("name")).trim(),
       brand: emptyToNull(form.get("brand")),
       objective: emptyToNull(form.get("objective")),
-      budget: emptyToNull(form.get("budget")),
+      budget: computeBudget(form.get("budget_amount"), form.get("budget_unit")),
       status: form.get("status") as CampaignStatus,
       start_date: emptyToNull(form.get("start_date")),
       end_date: emptyToNull(form.get("end_date")),
@@ -56,7 +56,27 @@ export function CampaignForm({
           <Input name="brand" placeholder="Pronto" />
         </Field>
         <Field label="Budget (₹)">
-          <Input name="budget" type="number" min="0" step="1" placeholder="500000" />
+          <div className="flex gap-2">
+            <Input
+              name="budget_amount"
+              type="number"
+              min="0"
+              step="any"
+              placeholder="45.29"
+              className="flex-1"
+            />
+            <Select
+              name="budget_unit"
+              defaultValue="1"
+              aria-label="Budget unit"
+              className="w-20"
+            >
+              <option value="1">₹</option>
+              <option value="1000">K</option>
+              <option value="100000">L</option>
+              <option value="10000000">Cr</option>
+            </Select>
+          </div>
         </Field>
       </div>
       <Field label="Objective">
@@ -120,4 +140,17 @@ function Field({
 function emptyToNull(v: FormDataEntryValue | null): string | null {
   const s = v ? String(v).trim() : "";
   return s === "" ? null : s;
+}
+
+// Multiply the entered amount by the selected unit (₹ / K / L / Cr).
+function computeBudget(
+  amount: FormDataEntryValue | null,
+  unit: FormDataEntryValue | null,
+): string | null {
+  const a = amount ? String(amount).trim() : "";
+  if (a === "") return null;
+  const n = Number(a);
+  if (Number.isNaN(n)) return null;
+  const mult = Number(unit) || 1;
+  return String(Math.round(n * mult * 100) / 100);
 }
