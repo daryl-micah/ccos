@@ -49,13 +49,19 @@ export function GrowthChart({ influencerId }: { influencerId: string }) {
     return null; // nothing to chart until history accumulates
   }
 
-  const data = (trends[metric] ?? []).map((p) => ({
-    date: new Date(p.captured_at).toLocaleDateString("en-IN", {
-      month: "short",
-      day: "numeric",
-    }),
-    value: p.value,
-  }));
+  const data = (trends[metric] ?? []).map((p) => {
+    const d = new Date(p.captured_at);
+    return {
+      // Month label on the axis; full date kept for the tooltip.
+      month: d.toLocaleDateString("en-IN", { month: "short", year: "2-digit" }),
+      full: d.toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }),
+      value: p.value,
+    };
+  });
 
   return (
     <Card>
@@ -78,10 +84,11 @@ export function GrowthChart({ influencerId }: { influencerId: string }) {
           <LineChart data={data} margin={{ top: 8, right: 12, bottom: 8, left: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e6d6ca" vertical={false} />
             <XAxis
-              dataKey="date"
+              dataKey="month"
               tick={{ fontSize: 12, fill: "#6b5d54" }}
               tickLine={false}
               axisLine={false}
+              minTickGap={28}
             />
             <YAxis
               tick={{ fontSize: 12, fill: "#6b5d54" }}
@@ -92,6 +99,11 @@ export function GrowthChart({ influencerId }: { influencerId: string }) {
             />
             <Tooltip
               formatter={(v) => formatNumber(v as number)}
+              labelFormatter={(_label, payload) =>
+                payload && payload.length
+                  ? (payload[0].payload as { full: string }).full
+                  : ""
+              }
               cursor={{ stroke: "#d0b8ac" }}
             />
             <Line
