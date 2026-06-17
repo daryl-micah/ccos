@@ -17,7 +17,6 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InstagramCard } from "@/components/influencers/instagram-card";
-import { GrowthChart } from "@/components/influencers/growth-chart";
 import {
   Table,
   TableBody,
@@ -189,8 +188,6 @@ export default function InfluencerDetailPage({
           instagramUsername={influencer.instagram_username}
           initialMetrics={igMetrics}
         />
-
-        <GrowthChart influencerId={id} />
       </div>
     </>
   );
