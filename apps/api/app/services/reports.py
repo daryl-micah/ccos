@@ -27,7 +27,13 @@ from app.models import (
 )
 
 # Insight metrics surfaced as columns in the summary / posts sheets.
-KEY_METRICS = ["likes", "comments", "views", "engagement_rate"]
+KEY_METRICS = [
+    "likes",
+    "comments",
+    "views",
+    "engagement_rate",
+    "engagement_rate_reach",
+]
 
 HEADER_FONT = Font(bold=True)
 
