@@ -67,6 +67,7 @@ class PostStats:
     comments: int
     views: int | None  # video/reel plays; None for photos
     is_video: bool
+    posted_at: datetime | None = None  # the post's real publish time
     # Instagram's API does not expose share or repost counts.
     shares: int | None = None
     reposts: int | None = None
@@ -360,6 +361,7 @@ def fetch_post(url: str) -> PostStats:
         comments=media.comment_count or 0,
         views=views,
         is_video=is_video,
+        posted_at=media.taken_at,
     )
 
 

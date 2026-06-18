@@ -36,6 +36,11 @@ async def sync_post_metrics(post_id: uuid.UUID, db: AsyncSession = Depends(get_d
     rows, er_followers, er_reach, followers = await instagram.store_post_metrics(
         db, post, stats
     )
+    # Use Instagram's real publish time instead of manual entry.
+    if stats.posted_at is not None:
+        post.posted_at = stats.posted_at
+        await db.flush()
+
     return PostMetricsResult(
         likes=stats.likes,
         comments=stats.comments,
@@ -43,6 +48,7 @@ async def sync_post_metrics(post_id: uuid.UUID, db: AsyncSession = Depends(get_d
         engagement_rate=er_followers,
         engagement_rate_reach=er_reach,
         followers=int(followers) if followers else None,
+        posted_at=post.posted_at,
         shares_available=False,
         metrics=rows,
     )
