@@ -1033,10 +1033,16 @@ Running log of scope decisions made during development.
   stats stored as influencer-scoped metrics (each sync a timestamped
   snapshot).
 * **Auto post metrics (Phase 3)** — adding an Instagram live post link
-  auto-fetches its likes, comments, views (reels) and computes
-  engagement_rate = (likes+comments)/followers×100, stored as post-scoped
+  auto-fetches its likes, comments, views (reels), stored as post-scoped
   metrics (idempotent re-sync). **Shares & reposts are not exposed by
   Instagram's API**, so they can't be collected automatically.
+* **Two engagement rates** — `engagement_rate` = (likes+comments)/**followers**
+  ×100 (the standard, always low for mega accounts ~0.2%), and
+  `engagement_rate_reach` = (likes+comments)/**views**×100 for video/reels
+  (~3.5%, matching tools like HypeAuditor which divide by reach, not
+  followers). Shown side by side as "ER (followers)" and "ER (reach)" at
+  both post and influencer level. Reach-ER is only available where Instagram
+  exposes a view count (videos/reels), not photos.
 * **Historical tracking shipped (Phase 5)** — Celery worker + beat
   (daily Instagram snapshot at 03:00 UTC) and a recompute task; a trends
   endpoint powers a growth-over-time chart on the influencer page. Metrics
