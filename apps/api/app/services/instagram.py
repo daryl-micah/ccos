@@ -26,6 +26,11 @@ from app.models.enums import MetricSource
 # what tools like HypeAuditor report (they sample ~30 posts).
 DEFAULT_MAX_POSTS = 30
 
+# The feed listing returns no view counts, so reach-ER needs a per-video
+# media_info call. Cap how many we make per profile sync to bound latency and
+# rate-limit exposure.
+MAX_VIEW_FETCHES = 8
+
 
 class InstagramError(Exception):
     """Raised when a profile can't be fetched (private, missing, blocked)."""
@@ -266,25 +271,35 @@ def fetch_profile(username: str, max_posts: int = DEFAULT_MAX_POSTS) -> IgProfil
     posts: list[IgPost] = []
     if not user.is_private:
         try:
-            for media in client.user_medias(user.pk, max_posts):
-                views = (
-                    (media.view_count or media.play_count)
-                    if media.media_type == 2
-                    else None
-                )
-                posts.append(
-                    IgPost(
-                        shortcode=media.code,
-                        likes=media.like_count or 0,
-                        comments=media.comment_count or 0,
-                        timestamp=media.taken_at,
-                        caption=(media.caption_text or "")[:280],
-                        url=f"https://www.instagram.com/p/{media.code}/",
-                        views=views,
-                    )
-                )
+            medias = client.user_medias(user.pk, max_posts)
         except Exception:  # noqa: BLE001 - keep profile stats even if posts fail
-            posts = []
+            medias = []
+
+        view_fetches = 0
+        for media in medias:
+            views: int | None = None
+            if media.media_type == 2:  # video / reel
+                views = media.view_count or media.play_count or None
+                # The feed listing reports 0 views; fetch the real play count
+                # via media_info (bounded by MAX_VIEW_FETCHES).
+                if not views and view_fetches < MAX_VIEW_FETCHES:
+                    view_fetches += 1
+                    try:
+                        full = client.media_info(media.pk)
+                        views = full.view_count or full.play_count or None
+                    except Exception:  # noqa: BLE001 - skip view on failure
+                        views = None
+            posts.append(
+                IgPost(
+                    shortcode=media.code,
+                    likes=media.like_count or 0,
+                    comments=media.comment_count or 0,
+                    timestamp=media.taken_at,
+                    caption=(media.caption_text or "")[:280],
+                    url=f"https://www.instagram.com/p/{media.code}/",
+                    views=views,
+                )
+            )
 
     return IgProfile(
         username=user.username,
