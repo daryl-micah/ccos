@@ -20,7 +20,18 @@ const FIELDS: {
   { name: "followers", label: "Followers" },
   { name: "avg_likes", label: "Avg likes" },
   { name: "avg_comments", label: "Avg comments" },
-  { name: "engagement_rate", label: "Engagement", suffix: "%", decimals: true },
+  {
+    name: "engagement_rate",
+    label: "ER (followers)",
+    suffix: "%",
+    decimals: true,
+  },
+  {
+    name: "engagement_rate_reach",
+    label: "ER (reach)",
+    suffix: "%",
+    decimals: true,
+  },
   { name: "posting_frequency", label: "Posts/wk", decimals: true },
   { name: "post_count", label: "Total posts" },
 ];
@@ -80,6 +91,9 @@ export function InstagramCard({
         avg_likes: r.avg_likes,
         avg_comments: r.avg_comments,
         engagement_rate: r.engagement_rate,
+        ...(r.engagement_rate_reach !== null
+          ? { engagement_rate_reach: r.engagement_rate_reach }
+          : {}),
         posting_frequency: r.posting_frequency,
         post_count: r.post_count,
       });

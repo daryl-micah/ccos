@@ -335,10 +335,13 @@ export default function CreatorDetailPage({
                         className="group inline-flex items-center gap-1.5 rounded-full border bg-muted px-2.5 py-0.5 text-xs"
                       >
                         <span className="text-muted-foreground">
-                          {titleCase(m.metric_name)}
+                          {metricLabel(m.metric_name)}
                         </span>
                         <span className="font-medium">
                           {formatMetric(m.metric_value)}
+                          {m.metric_name.startsWith("engagement_rate")
+                            ? "%"
+                            : ""}
                         </span>
                         <button
                           onClick={() => deleteMetric(m.id)}
@@ -425,4 +428,10 @@ function formatMetric(value: string): string {
   if (Number.isNaN(n)) return value;
   // Drop trailing zeros (e.g. "2400.0000" -> "2400", "5.4000" -> "5.4").
   return String(Number(n.toFixed(4)));
+}
+
+function metricLabel(name: string): string {
+  if (name === "engagement_rate") return "ER (followers)";
+  if (name === "engagement_rate_reach") return "ER (reach)";
+  return titleCase(name);
 }

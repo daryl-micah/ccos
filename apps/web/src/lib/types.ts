@@ -102,6 +102,7 @@ export interface PostMetricsResult {
   comments: number;
   views: number | null;
   engagement_rate: number | null;
+  engagement_rate_reach: number | null;
   followers: number | null;
   shares_available: boolean;
   metrics: Metric[];
@@ -142,6 +143,7 @@ export interface InstagramSyncResult {
   avg_likes: number;
   avg_comments: number;
   engagement_rate: number;
+  engagement_rate_reach: number | null;
   posting_frequency: number;
   top_posts: InstagramPost[];
   metrics: Metric[];
