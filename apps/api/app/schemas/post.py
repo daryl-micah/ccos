@@ -37,7 +37,8 @@ class PostMetricsResult(BaseModel):
     likes: int
     comments: int
     views: int | None = None
-    engagement_rate: float | None = None
+    engagement_rate: float | None = None  # by followers
+    engagement_rate_reach: float | None = None  # by views (video/reel)
     followers: int | None = None
     shares_available: bool = False  # Instagram doesn't expose shares/reposts
     metrics: list[MetricOut]

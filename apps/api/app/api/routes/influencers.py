@@ -86,6 +86,7 @@ async def sync_instagram(
         avg_likes=computed["avg_likes"],
         avg_comments=computed["avg_comments"],
         engagement_rate=computed["engagement_rate"],
+        engagement_rate_reach=computed.get("engagement_rate_reach"),
         posting_frequency=computed["posting_frequency"],
         top_posts=[
             InstagramPostOut(

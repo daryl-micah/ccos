@@ -35,7 +35,8 @@ class InstagramSyncResult(BaseModel):
     post_count: int
     avg_likes: float
     avg_comments: float
-    engagement_rate: float
+    engagement_rate: float  # by followers
+    engagement_rate_reach: float | None = None  # by views (video/reel)
     posting_frequency: float
     top_posts: list[InstagramPostOut]
     metrics: list[MetricOut]

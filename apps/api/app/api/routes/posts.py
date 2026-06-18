@@ -33,14 +33,15 @@ async def sync_post_metrics(post_id: uuid.UUID, db: AsyncSession = Depends(get_d
     except instagram.InstagramError as exc:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
 
-    rows, engagement_rate, followers = await instagram.store_post_metrics(
+    rows, er_followers, er_reach, followers = await instagram.store_post_metrics(
         db, post, stats
     )
     return PostMetricsResult(
         likes=stats.likes,
         comments=stats.comments,
         views=stats.views,
-        engagement_rate=engagement_rate,
+        engagement_rate=er_followers,
+        engagement_rate_reach=er_reach,
         followers=int(followers) if followers else None,
         shares_available=False,
         metrics=rows,

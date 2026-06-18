@@ -43,6 +43,7 @@ class IgPost:
     timestamp: datetime
     caption: str
     url: str
+    views: int | None = None  # video/reel plays; None for photos
 
 
 @dataclass
@@ -81,6 +82,15 @@ def compute_profile_metrics(profile: IgProfile) -> dict[str, float]:
         else 0.0
     )
 
+    # ER by reach: mean of (likes + comments) / views over posts that have a
+    # view count (reels/videos). Matches how tools like HypeAuditor report ER.
+    reach_ers = [
+        (p.likes + p.comments) / p.views * 100 for p in posts if p.views
+    ]
+    engagement_rate_reach = (
+        round(sum(reach_ers) / len(reach_ers), 4) if reach_ers else None
+    )
+
     posting_frequency = 0.0
     if n >= 2:
         times = sorted(p.timestamp for p in posts)
@@ -88,7 +98,7 @@ def compute_profile_metrics(profile: IgProfile) -> dict[str, float]:
         if span_days > 0:
             posting_frequency = round(n / (span_days / 7), 4)  # posts per week
 
-    return {
+    result = {
         "followers": float(profile.followers),
         "following": float(profile.following),
         "post_count": float(profile.media_count),
@@ -97,6 +107,9 @@ def compute_profile_metrics(profile: IgProfile) -> dict[str, float]:
         "engagement_rate": engagement_rate,
         "posting_frequency": posting_frequency,
     }
+    if engagement_rate_reach is not None:
+        result["engagement_rate_reach"] = engagement_rate_reach
+    return result
 
 
 def top_posts(profile: IgProfile, limit: int = 3) -> list[IgPost]:
@@ -254,6 +267,11 @@ def fetch_profile(username: str, max_posts: int = DEFAULT_MAX_POSTS) -> IgProfil
     if not user.is_private:
         try:
             for media in client.user_medias(user.pk, max_posts):
+                views = (
+                    (media.view_count or media.play_count)
+                    if media.media_type == 2
+                    else None
+                )
                 posts.append(
                     IgPost(
                         shortcode=media.code,
@@ -262,6 +280,7 @@ def fetch_profile(username: str, max_posts: int = DEFAULT_MAX_POSTS) -> IgProfil
                         timestamp=media.taken_at,
                         caption=(media.caption_text or "")[:280],
                         url=f"https://www.instagram.com/p/{media.code}/",
+                        views=views,
                     )
                 )
         except Exception:  # noqa: BLE001 - keep profile stats even if posts fail
@@ -345,11 +364,13 @@ async def _latest_followers(db: AsyncSession, influencer_id) -> float | None:
 
 async def store_post_metrics(
     db: AsyncSession, post: Post, stats: PostStats
-) -> tuple[list[Metric], float | None, float | None]:
-    """Store post-scoped metrics; returns (rows, engagement_rate, followers).
+) -> tuple[list[Metric], float | None, float | None, float | None]:
+    """Store post-scoped metrics; returns (rows, er_followers, er_reach, followers).
 
-    Engagement rate = (likes + comments) / followers * 100, using the
-    influencer's most recent followers snapshot. Replaces any prior
+    - engagement_rate       = (likes + comments) / followers * 100
+    - engagement_rate_reach = (likes + comments) / views * 100  (video/reel)
+
+    Uses the influencer's most recent followers snapshot. Replaces any prior
     Instagram-sourced metrics for this post (manual entries are kept).
     """
     ci = await db.get(CampaignInfluencer, post.campaign_influencer_id)
@@ -358,6 +379,11 @@ async def store_post_metrics(
     engagement_rate = (
         round((stats.likes + stats.comments) / followers * 100, 4)
         if followers
+        else None
+    )
+    engagement_rate_reach = (
+        round((stats.likes + stats.comments) / stats.views * 100, 4)
+        if stats.views
         else None
     )
 
@@ -369,6 +395,8 @@ async def store_post_metrics(
         values["views"] = float(stats.views)
     if engagement_rate is not None:
         values["engagement_rate"] = engagement_rate
+    if engagement_rate_reach is not None:
+        values["engagement_rate_reach"] = engagement_rate_reach
 
     # Replace previous Instagram-sourced metrics for this post (idempotent
     # re-sync); manual entries always win and are left untouched.
@@ -396,4 +424,4 @@ async def store_post_metrics(
     await db.flush()
     for row in rows:
         await db.refresh(row)
-    return rows, engagement_rate, followers
+    return rows, engagement_rate, engagement_rate_reach, followers
