@@ -58,6 +58,7 @@ export default function CreatorDetailPage({
   const [showPost, setShowPost] = React.useState(false);
   const [syncingPost, setSyncingPost] = React.useState<string | null>(null);
   const [postSyncError, setPostSyncError] = React.useState<string | null>(null);
+  const [metricPost, setMetricPost] = React.useState<Post | null>(null);
 
   React.useEffect(() => {
     (async () => {
@@ -99,6 +100,34 @@ export default function CreatorDetailPage({
     return map;
   }, [metrics]);
 
+  // Metric columns shown in the posts table — standard ones first, then any
+  // manually-added metrics (e.g. shares), so the table mirrors the export.
+  const metricNames = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const m of metrics) if (m.post_id) set.add(m.metric_name);
+    const preferred = [
+      "likes",
+      "comments",
+      "views",
+      "engagement_rate",
+      "engagement_rate_reach",
+    ];
+    const rest = [...set].filter((n) => !preferred.includes(n)).sort();
+    return [...preferred.filter((n) => set.has(n)), ...rest];
+  }, [metrics]);
+
+  function postMetric(postId: string, name: string): string | null {
+    const rows = (metricsByPost.get(postId) ?? []).filter(
+      (m) => m.metric_name === name,
+    );
+    if (rows.length === 0) return null;
+    // Manual entries win; otherwise take the latest snapshot.
+    const manual = rows.filter((m) => m.source === "manual");
+    const pool = manual.length ? manual : rows;
+    return pool.reduce((a, b) => (a.captured_at > b.captured_at ? a : b))
+      .metric_value;
+  }
+
   async function deleteDeliverable(deliverableId: string) {
     await api.deliverables.remove(deliverableId);
     setDeliverables((prev) => prev.filter((d) => d.id !== deliverableId));
@@ -108,11 +137,6 @@ export default function CreatorDetailPage({
     if (!confirm("Delete this live post and its metrics? (soft delete)")) return;
     await api.posts.remove(postId);
     setPosts((prev) => prev.filter((p) => p.id !== postId));
-  }
-
-  async function deleteMetric(metricId: string) {
-    await api.metrics.remove(metricId);
-    setMetrics((prev) => prev.filter((m) => m.id !== metricId));
   }
 
   async function syncPostMetrics(postId: string) {
@@ -278,96 +302,98 @@ export default function CreatorDetailPage({
                 likes, comments, and engagement.
               </p>
             ) : (
-              posts.map((post) => (
-                <div key={post.id} className="rounded-lg border p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <a
-                        href={post.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex max-w-full items-center gap-1.5 truncate font-medium hover:underline"
-                      >
-                        <ExternalLink className="size-3.5 shrink-0" />
-                        <span className="truncate">{post.url}</span>
-                      </a>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="secondary">{post.platform}</Badge>
-                        {post.posted_at ? (
-                          <span>{formatDate(post.posted_at)}</span>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {post.platform === "instagram" ? (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => syncPostMetrics(post.id)}
-                          disabled={syncingPost === post.id}
-                          aria-label="Sync post metrics"
-                          title="Fetch likes, comments & ER% from Instagram"
-                        >
-                          <RefreshCw
-                            className={
-                              syncingPost === post.id
-                                ? "animate-spin text-muted-foreground"
-                                : "text-muted-foreground"
-                            }
-                          />
-                        </Button>
-                      ) : null}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deletePost(post.id)}
-                        aria-label="Delete post"
-                      >
-                        <Trash2 className="text-muted-foreground" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {(metricsByPost.get(post.id) ?? []).map((m) => (
-                      <span
-                        key={m.id}
-                        className="group inline-flex items-center gap-1.5 rounded-full border bg-muted px-2.5 py-0.5 text-xs"
-                      >
-                        <span className="text-muted-foreground">
-                          {metricLabel(m.metric_name)}
-                        </span>
-                        <span className="font-medium">
-                          {formatMetric(m.metric_value)}
-                          {m.metric_name.startsWith("engagement_rate")
-                            ? "%"
-                            : ""}
-                        </span>
-                        <button
-                          onClick={() => deleteMetric(m.id)}
-                          className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
-                          aria-label="Remove metric"
-                        >
-                          ×
-                        </button>
-                      </span>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Post</TableHead>
+                    <TableHead>Platform</TableHead>
+                    <TableHead>Posted</TableHead>
+                    {metricNames.map((n) => (
+                      <TableHead key={n} className="text-right">
+                        {metricLabel(n)}
+                      </TableHead>
                     ))}
-                    {(metricsByPost.get(post.id) ?? []).length === 0 ? (
-                      <span className="text-xs text-muted-foreground">
-                        No metrics yet —
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-3">
-                    <PostMetricForm
-                      campaignInfluencerId={ciId}
-                      postId={post.id}
-                      onAdded={(m) => setMetrics((prev) => [...prev, m])}
-                    />
-                  </div>
-                </div>
-              ))
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {posts.map((post) => (
+                    <TableRow key={post.id}>
+                      <TableCell className="max-w-60">
+                        <a
+                          href={post.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex max-w-full items-center gap-1.5 truncate font-medium hover:underline"
+                        >
+                          <ExternalLink className="size-3.5 shrink-0" />
+                          <span className="truncate">{post.url}</span>
+                        </a>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{post.platform}</Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                        {post.posted_at ? formatDate(post.posted_at) : "—"}
+                      </TableCell>
+                      {metricNames.map((n) => {
+                        const v = postMetric(post.id, n);
+                        return (
+                          <TableCell
+                            key={n}
+                            className="text-right tabular-nums"
+                          >
+                            {v === null
+                              ? "—"
+                              : `${formatMetric(v)}${
+                                  n.startsWith("engagement_rate") ? "%" : ""
+                                }`}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          {post.platform === "instagram" ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => syncPostMetrics(post.id)}
+                              disabled={syncingPost === post.id}
+                              aria-label="Sync post metrics"
+                              title="Fetch likes, comments & ER% from Instagram"
+                            >
+                              <RefreshCw
+                                className={
+                                  syncingPost === post.id
+                                    ? "animate-spin text-muted-foreground"
+                                    : "text-muted-foreground"
+                                }
+                              />
+                            </Button>
+                          ) : null}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setMetricPost(post)}
+                            aria-label="Add manual metric"
+                            title="Add a manual metric"
+                          >
+                            <Plus className="text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deletePost(post.id)}
+                            aria-label="Delete post"
+                          >
+                            <Trash2 className="text-muted-foreground" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             )}
           </CardContent>
         </Card>
@@ -403,6 +429,20 @@ export default function CreatorDetailPage({
             if (p.platform === "instagram") syncPostMetrics(p.id);
           }}
         />
+      </Modal>
+
+      <Modal
+        open={!!metricPost}
+        onClose={() => setMetricPost(null)}
+        title="Add manual metric"
+      >
+        {metricPost ? (
+          <PostMetricForm
+            campaignInfluencerId={ciId}
+            postId={metricPost.id}
+            onAdded={(m) => setMetrics((prev) => [...prev, m])}
+          />
+        ) : null}
       </Modal>
     </>
   );
