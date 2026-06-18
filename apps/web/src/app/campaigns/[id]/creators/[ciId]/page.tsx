@@ -151,6 +151,14 @@ export default function CreatorDetailPage({
         ),
         ...res.metrics,
       ]);
+      // Reflect the real publish date extracted from Instagram.
+      if (res.posted_at) {
+        setPosts((prev) =>
+          prev.map((p) =>
+            p.id === postId ? { ...p, posted_at: res.posted_at } : p,
+          ),
+        );
+      }
     } catch (err) {
       setPostSyncError(
         err instanceof ApiError && err.status === 409

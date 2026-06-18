@@ -104,6 +104,7 @@ export interface PostMetricsResult {
   engagement_rate: number | null;
   engagement_rate_reach: number | null;
   followers: number | null;
+  posted_at: string | null;
   shares_available: boolean;
   metrics: Metric[];
 }

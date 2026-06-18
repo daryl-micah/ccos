@@ -42,7 +42,7 @@ export function PostForm({
         deliverable_id: deliverableId === "" ? null : deliverableId,
         url,
         platform: form.get("platform") as Platform,
-        posted_at: emptyToNull(form.get("posted_at")),
+        // posted_at is extracted from Instagram on sync.
       });
       onCreated(created);
     } catch (err) {
@@ -64,21 +64,18 @@ export function PostForm({
           placeholder="https://instagram.com/reel/…"
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label>Platform</Label>
-          <Select name="platform" defaultValue="instagram">
-            {PLATFORMS.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="space-y-1.5">
-          <Label>Posted at</Label>
-          <Input name="posted_at" type="datetime-local" />
-        </div>
+      <div className="space-y-1.5">
+        <Label>Platform</Label>
+        <Select name="platform" defaultValue="instagram">
+          {PLATFORMS.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          For Instagram, the post date and metrics are fetched automatically.
+        </p>
       </div>
       <div className="space-y-1.5">
         <Label>Linked deliverable (optional)</Label>
@@ -104,9 +101,4 @@ export function PostForm({
       </div>
     </form>
   );
-}
-
-function emptyToNull(v: FormDataEntryValue | null): string | null {
-  const s = v ? String(v).trim() : "";
-  return s === "" ? null : s;
 }
