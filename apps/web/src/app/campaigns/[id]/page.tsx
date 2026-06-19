@@ -3,9 +3,9 @@
 import * as React from "react";
 import { use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, Plus, Trash2, ExternalLink, RefreshCw } from "lucide-react";
+import { ArrowLeft, Download, Plus, Trash2, ExternalLink, RefreshCw, Upload } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import type { Campaign, CampaignInfluencer, Influencer, Metric, Post } from "@/lib/types";
+import type { Agency, Campaign, CampaignInfluencer, Influencer, Metric, Post } from "@/lib/types";
 import { campaignStatusVariant, ciStatusVariant, titleCase } from "@/lib/status";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { Modal } from "@/components/ui/modal";
 import { AddCreatorForm } from "@/components/campaigns/add-creator-form";
+import { RosterImportModal } from "@/components/campaigns/roster-import";
 
 export default function CampaignDetailPage({
   params,
@@ -33,24 +34,28 @@ export default function CampaignDetailPage({
   const [campaign, setCampaign] = React.useState<Campaign | null>(null);
   const [links, setLinks] = React.useState<CampaignInfluencer[]>([]);
   const [influencers, setInfluencers] = React.useState<Influencer[]>([]);
+  const [agencies, setAgencies] = React.useState<Agency[]>([]);
   const [posts, setPosts] = React.useState<Post[]>([]);
   const [metrics, setMetrics] = React.useState<Metric[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [showAdd, setShowAdd] = React.useState(false);
+  const [showRoster, setShowRoster] = React.useState(false);
   const [recomputing, setRecomputing] = React.useState(false);
 
   React.useEffect(() => {
     (async () => {
       try {
-        const [c, l, allInf] = await Promise.all([
+        const [c, l, allInf, allAgencies] = await Promise.all([
           api.campaigns.get(id),
           api.campaignInfluencers.list({ campaign_id: id, limit: 500 }),
           api.influencers.list({ limit: 500 }),
+          api.agencies.list(),
         ]);
         setCampaign(c);
         setLinks(l);
         setInfluencers(allInf);
+        setAgencies(allAgencies);
 
         // Fetch posts and metrics for all campaign influencers
         if (l.length > 0) {
@@ -87,6 +92,23 @@ export default function CampaignDetailPage({
     () => new Map(influencers.map((i) => [i.id, i])),
     [influencers],
   );
+
+  const agencyById = React.useMemo(
+    () => new Map(agencies.map((a) => [a.id, a])),
+    [agencies],
+  );
+
+  // After a roster import, refresh creators, influencers, and agencies.
+  async function reloadRoster() {
+    const [l, allInf, allAgencies] = await Promise.all([
+      api.campaignInfluencers.list({ campaign_id: id, limit: 500 }),
+      api.influencers.list({ limit: 500 }),
+      api.agencies.list(),
+    ]);
+    setLinks(l);
+    setInfluencers(allInf);
+    setAgencies(allAgencies);
+  }
 
   // Influencers not yet on this campaign — candidates to add.
   const candidates = React.useMemo(() => {
@@ -287,6 +309,13 @@ export default function CampaignDetailPage({
               <Button
                 size="sm"
                 variant="outline"
+                onClick={() => setShowRoster(true)}
+              >
+                <Upload /> Import roster
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={handleRecompute}
                 disabled={recomputing}
               >
@@ -305,6 +334,7 @@ export default function CampaignDetailPage({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Creator</TableHead>
+                    <TableHead>Closed by</TableHead>
                     <TableHead>City</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Cost</TableHead>
@@ -319,6 +349,9 @@ export default function CampaignDetailPage({
                 <TableBody>
                   {links.map((l) => {
                     const inf = nameById.get(l.influencer_id);
+                    const agency = l.agency_id
+                      ? agencyById.get(l.agency_id)
+                      : null;
                     return (
                       <TableRow key={l.id}>
                         <TableCell className="font-medium">
@@ -328,6 +361,9 @@ export default function CampaignDetailPage({
                           >
                             {inf ? inf.name : "Unknown creator"}
                           </Link>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {agency ? agency.name : "In-house"}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {inf?.city ?? "—"}
@@ -458,6 +494,7 @@ export default function CampaignDetailPage({
         <AddCreatorForm
           campaignId={id}
           influencers={candidates}
+          agencies={agencies}
           onCancel={() => setShowAdd(false)}
           onAdded={(link) => {
             setLinks((prev) => [link, ...prev]);
@@ -465,6 +502,13 @@ export default function CampaignDetailPage({
           }}
         />
       </Modal>
+
+      <RosterImportModal
+        campaignId={id}
+        open={showRoster}
+        onClose={() => setShowRoster(false)}
+        onImported={reloadRoster}
+      />
     </>
   );
 }

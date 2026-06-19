@@ -1,4 +1,5 @@
 import type {
+  Agency,
   AIInsights,
   AIStatus,
   Campaign,
@@ -94,8 +95,33 @@ export const api = {
         request<Metric[]>(`/campaigns/${id}/recompute-metrics`, {
           method: "POST",
         }),
+      /** Import an agency's creator list (name/contact/handle) into the campaign. */
+      importRoster: async (
+        campaignId: string,
+        file: File,
+        agencyId: string | null,
+      ): Promise<RosterImportResult> => {
+        const body = new FormData();
+        body.append("file", file);
+        if (agencyId) body.append("agency_id", agencyId);
+        const res = await fetch(
+          `${BASE_URL}/campaigns/${campaignId}/import-roster`,
+          { method: "POST", body },
+        );
+        if (!res.ok) {
+          let detail = res.statusText;
+          try {
+            detail = (await res.json()).detail ?? detail;
+          } catch {
+            // ignore
+          }
+          throw new ApiError(res.status, detail);
+        }
+        return res.json() as Promise<RosterImportResult>;
+      },
     },
   ),
+  agencies: resource<Agency, Partial<Agency>, Partial<Agency>>("agencies"),
   influencers: Object.assign(
     resource<Influencer, Partial<Influencer>, Partial<Influencer>>(
       "influencers",
@@ -202,6 +228,13 @@ export const api = {
 };
 
 export interface ImportResult {
+  created: number;
+  created_influencers: Influencer[];
+}
+
+export interface RosterImportResult {
+  linked: number;
+  skipped: number;
   created: number;
   created_influencers: Influencer[];
 }

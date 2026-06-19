@@ -60,9 +60,15 @@ export interface Influencer extends Timestamped {
   notes: string | null;
 }
 
+export interface Agency extends Timestamped {
+  name: string;
+  notes: string | null;
+}
+
 export interface CampaignInfluencer extends Timestamped {
   campaign_id: string;
   influencer_id: string;
+  agency_id: string | null; // null = in-house ("closed by")
   cost: string | null;
   deliverables: string | null;
   status: CampaignInfluencerStatus;

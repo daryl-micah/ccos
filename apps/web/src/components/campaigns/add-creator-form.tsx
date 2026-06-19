@@ -3,6 +3,7 @@
 import * as React from "react";
 import { api } from "@/lib/api";
 import type {
+  Agency,
   CampaignInfluencer,
   CampaignInfluencerStatus,
   Influencer,
@@ -24,11 +25,13 @@ const STATUSES: CampaignInfluencerStatus[] = [
 export function AddCreatorForm({
   campaignId,
   influencers,
+  agencies,
   onAdded,
   onCancel,
 }: {
   campaignId: string;
   influencers: Influencer[];
+  agencies: Agency[];
   onAdded: (link: CampaignInfluencer) => void;
   onCancel: () => void;
 }) {
@@ -51,6 +54,7 @@ export function AddCreatorForm({
       const created = await api.campaignInfluencers.create({
         campaign_id: campaignId,
         influencer_id: influencerId,
+        agency_id: emptyToNull(form.get("agency_id")),
         cost: cost === "" ? null : cost,
         status: form.get("status") as CampaignInfluencerStatus,
         remarks: emptyToNull(form.get("remarks")),
@@ -86,6 +90,17 @@ export function AddCreatorForm({
             <option key={i.id} value={i.id}>
               {i.name}
               {i.city ? ` · ${i.city}` : ""}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Closed by</Label>
+        <Select name="agency_id" defaultValue="">
+          <option value="">In-house (brand team)</option>
+          {agencies.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
             </option>
           ))}
         </Select>
