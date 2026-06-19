@@ -364,11 +364,17 @@ Fields:
 ```yaml
 campaign_id
 influencer_id
+agency_id        # who sourced this creator for this campaign; null = in-house
 cost
 deliverables
 status
 remarks
 ```
+
+The agency is recorded **per campaign** (not on the master influencer),
+because an agency's roster changes campaign to campaign — the same creator
+may be agency-sourced in one campaign and in-house in another. This field
+drives the "closed by" column. See the Agency entity below.
 
 Status:
 
@@ -377,6 +383,27 @@ Status:
 * Confirmed
 * Posted
 * Completed
+
+---
+
+# Agency
+
+A talent agency that supplies creators for campaigns (e.g. Barcode, Flynt).
+"In-house" = no agency (the brand team sourced the creator directly).
+
+Fields:
+
+```yaml
+id
+name
+notes
+```
+
+Agencies send a **different Excel of creators per campaign** (name,
+contact, handle). The roster import (`POST /campaigns/{id}/import-roster`)
+ingests that file: matches each row to a master influencer by handle then
+name, creates the influencer if new, and links them to the campaign tagged
+with the agency. Idempotent — creators already on the campaign are skipped.
 
 ---
 
@@ -1032,6 +1059,13 @@ Running log of scope decisions made during development.
   Syncing while disconnected returns 409 so the UI prompts login. Profile
   stats stored as influencer-scoped metrics (each sync a timestamped
   snapshot).
+* **Agencies & "closed by" (per campaign)** — new Agency entity;
+  `CampaignInfluencer.agency_id` records who sourced each creator (null =
+  in-house). Per-campaign, not on the master influencer, since agency
+  rosters vary by campaign. Roster import (`POST /campaigns/{id}/import-roster`)
+  ingests an agency's creator Excel (name/contact/handle): match by
+  handle→name, auto-create new influencers, link to the campaign under the
+  agency, idempotent. "Closed by" shows in the creators table + export.
 * **Three Excel extracts (Phase 7, from the master sheet)** — modeled on the
   Pronto "Supply Sheet" the product was inspired by: (1) campaign-wise
   **creators** (`/export/campaigns/{id}/creators`), (2) campaign-wise
@@ -1062,14 +1096,18 @@ Running log of scope decisions made during development.
 * **Architecture decision** — Keep FastAPI as the core backend (Instagram
   via Instaloader and Celery are Python-only). A Next.js BFF + Better Auth
   was considered and deferred; revisit when adding auth.
-* **Brand palette established** — warm, soft neutrals:
-  * Almond Silk `#d0b8ac` — borders, inputs, focus rings, chart accent
-  * Powder Petal `#f3d8c7` — secondary/accent surfaces, active nav, badges
-  * Soft Linen `#efe5dc` — app background
+* **Brand palette revised (2026-06-19)** — soft greens with a coral accent
+  (replaces the earlier warm neutrals of Almond Silk / Powder Petal /
+  Soft Linen):
+  * Lime `#d4e09b` — secondary surfaces, badges, hover tints
+  * Cream `#f6f4d2` — sidebar background
+  * Sage `#cbdfbd` — muted surfaces (`#b9d0a3` deeper for borders/inputs)
+  * Coral `#f19c79` — focus rings, chart bars, pop accent
 
   Wired into the Tailwind v4 design tokens in `apps/web/src/app/globals.css`
-  (also exposed as `bg-almond-silk` / `bg-powder-petal` / `bg-soft-linen`
-  utilities). Primary actions stay a warm near-black for contrast.
+  (also exposed as `bg-lime` / `bg-cream` / `bg-sage` / `bg-coral`
+  utilities). Primary actions use a deep green (`#3d5232`) for contrast since
+  the brand colors are light.
 
 ---
 
