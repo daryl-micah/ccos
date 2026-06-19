@@ -25,6 +25,13 @@ class CampaignInfluencer(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
         nullable=False,
         index=True,
     )
+    # Who sourced this creator for this campaign ("closed by"); null = in-house.
+    agency_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("agencies.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     cost: Mapped[float | None] = mapped_column(Numeric(14, 2), nullable=True)
     deliverables: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(
@@ -34,6 +41,7 @@ class CampaignInfluencer(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
 
     campaign: Mapped["Campaign"] = relationship(back_populates="campaign_influencers")  # noqa: F821
     influencer: Mapped["Influencer"] = relationship(back_populates="campaign_influencers")  # noqa: F821
+    agency: Mapped["Agency | None"] = relationship()  # noqa: F821
 
     deliverable_items: Mapped[list["Deliverable"]] = relationship(  # noqa: F821
         back_populates="campaign_influencer",

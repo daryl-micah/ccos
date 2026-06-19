@@ -10,6 +10,7 @@ from app.schemas.common import IDTimestamps
 class CampaignInfluencerBase(BaseModel):
     campaign_id: uuid.UUID
     influencer_id: uuid.UUID
+    agency_id: uuid.UUID | None = None  # null = in-house ("closed by")
     cost: Decimal | None = None
     deliverables: str | None = None
     status: CampaignInfluencerStatus = CampaignInfluencerStatus.PLANNED
@@ -21,6 +22,7 @@ class CampaignInfluencerCreate(CampaignInfluencerBase):
 
 
 class CampaignInfluencerUpdate(BaseModel):
+    agency_id: uuid.UUID | None = None
     cost: Decimal | None = None
     deliverables: str | None = None
     status: CampaignInfluencerStatus | None = None

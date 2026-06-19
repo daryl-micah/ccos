@@ -1,3 +1,4 @@
+from app.models.agency import Agency
 from app.models.base import Base
 from app.models.campaign import Campaign
 from app.models.campaign_influencer import CampaignInfluencer
@@ -8,6 +9,7 @@ from app.models.metric import Metric
 from app.models.post import Post
 
 __all__ = [
+    "Agency",
     "Base",
     "Campaign",
     "CampaignInfluencer",

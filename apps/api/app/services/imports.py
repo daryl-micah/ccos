@@ -16,6 +16,9 @@ FIELD_ALIASES = {
     "influencer": "name",
     "instagram": "instagram_username",
     "instagram_username": "instagram_username",
+    "instagram link": "instagram_username",
+    "instagram_link": "instagram_username",
+    "handle": "instagram_username",
     "ig": "instagram_username",
     "youtube": "youtube_channel",
     "youtube_channel": "youtube_channel",
@@ -27,6 +30,10 @@ FIELD_ALIASES = {
     "manager_name": "manager_name",
     "email": "email",
     "phone": "phone",
+    "contact": "phone",
+    "contact details": "phone",
+    "contact number": "phone",
+    "contact_number": "phone",
     "notes": "notes",
 }
 

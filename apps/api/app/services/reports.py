@@ -19,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
+    Agency,
     Campaign,
     CampaignInfluencer,
     Deliverable,
@@ -309,6 +310,7 @@ class _Bundle:
     metrics_by_post: dict[uuid.UUID, list[Metric]]
     followers: dict[uuid.UUID, float]  # influencer_id -> latest followers
     repeat: set[uuid.UUID]  # influencers worked with on >1 campaign
+    agencies: dict[uuid.UUID, Agency]  # agency_id -> Agency ("closed by")
 
 
 async def _latest_followers(db: AsyncSession, inf_ids: list[uuid.UUID]) -> dict:
@@ -398,6 +400,14 @@ async def _load_bundle(db: AsyncSession, campaign_id: uuid.UUID) -> _Bundle | No
         if m.post_id:
             metrics_by_post[m.post_id].append(m)
 
+    agency_ids = [ci.agency_id for ci in cis if ci.agency_id]
+    agencies = {
+        a.id: a
+        for a in await db.scalars(
+            select(Agency).where(Agency.id.in_(agency_ids or [uuid.uuid4()]))
+        )
+    }
+
     return _Bundle(
         campaign=campaign,
         cis=cis,
@@ -408,6 +418,7 @@ async def _load_bundle(db: AsyncSession, campaign_id: uuid.UUID) -> _Bundle | No
         metrics_by_post=metrics_by_post,
         followers=await _latest_followers(db, inf_ids),
         repeat=await _repeat_influencers(db, inf_ids),
+        agencies=agencies,
     )
 
 
@@ -442,7 +453,7 @@ async def build_campaign_creators_report(
         [
             "Creator",
             "Instagram",
-            "Manager",
+            "Closed by",
             "Contact",
             "City",
             "Category",
@@ -459,13 +470,14 @@ async def build_campaign_creators_report(
 
     for ci in b.cis:
         inf = b.influencers.get(ci.influencer_id)
+        agency = b.agencies.get(ci.agency_id) if ci.agency_id else None
         by_name: dict[str, list[float]] = defaultdict(list)
         for m in b.metrics_by_ci.get(ci.id, []):
             by_name[m.metric_name].append(float(m.metric_value))
         row = [
             inf.name if inf else "Unknown",
             (inf.instagram_username if inf else None) or "",
-            (inf.manager_name if inf else None) or "",
+            agency.name if agency else "In-house",
             ((inf.email or inf.phone) if inf else None) or "",
             (inf.city if inf else None) or "",
             (inf.category if inf else None) or "",
