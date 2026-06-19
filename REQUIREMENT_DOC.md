@@ -1032,6 +1032,14 @@ Running log of scope decisions made during development.
   Syncing while disconnected returns 409 so the UI prompts login. Profile
   stats stored as influencer-scoped metrics (each sync a timestamped
   snapshot).
+* **Three Excel extracts (Phase 7, from the master sheet)** — modeled on the
+  Pronto "Supply Sheet" the product was inspired by: (1) campaign-wise
+  **creators** (`/export/campaigns/{id}/creators`), (2) campaign-wise
+  **posts** (`/export/campaigns/{id}/posts`), (3) overall **campaigns
+  tracker** (`/export/tracker`, one row per campaign with aggregated funnel:
+  counts summed, rates/derived averaged, revenue + ROAS). Funnel metrics
+  (leads, calls, walk-ins, etc.) appear as dynamic columns once tracked.
+  Buttons: Creators/Posts on campaign detail, Tracker on campaigns list.
 * **Auto post metrics (Phase 3)** — adding an Instagram live post link
   auto-fetches its likes, comments, views (reels), stored as post-scoped
   metrics (idempotent re-sync). **Shares & reposts are not exposed by
