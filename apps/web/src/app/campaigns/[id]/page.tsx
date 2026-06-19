@@ -3,9 +3,9 @@
 import * as React from "react";
 import { use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, Plus, Trash2, ExternalLink, RefreshCw } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import type { Campaign, CampaignInfluencer, Influencer } from "@/lib/types";
+import type { Campaign, CampaignInfluencer, Influencer, Metric, Post } from "@/lib/types";
 import { campaignStatusVariant, ciStatusVariant, titleCase } from "@/lib/status";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
@@ -33,9 +33,12 @@ export default function CampaignDetailPage({
   const [campaign, setCampaign] = React.useState<Campaign | null>(null);
   const [links, setLinks] = React.useState<CampaignInfluencer[]>([]);
   const [influencers, setInfluencers] = React.useState<Influencer[]>([]);
+  const [posts, setPosts] = React.useState<Post[]>([]);
+  const [metrics, setMetrics] = React.useState<Metric[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [showAdd, setShowAdd] = React.useState(false);
+  const [recomputing, setRecomputing] = React.useState(false);
 
   React.useEffect(() => {
     (async () => {
@@ -48,6 +51,26 @@ export default function CampaignDetailPage({
         setCampaign(c);
         setLinks(l);
         setInfluencers(allInf);
+
+        // Fetch posts and metrics for all campaign influencers
+        if (l.length > 0) {
+          const [allPosts, allMetricsByCi] = await Promise.all([
+            Promise.all(
+              l.map((link) =>
+                api.posts.list({ campaign_influencer_id: link.id, limit: 500 })
+              )
+            ),
+            Promise.all(
+              l.map((link) =>
+                api.metrics.list({ campaign_influencer_id: link.id, limit: 500 })
+              )
+            ),
+          ]);
+          const flatPosts = allPosts.flat();
+          setPosts(flatPosts);
+          const flatMetrics = allMetricsByCi.flat();
+          setMetrics(flatMetrics);
+        }
       } catch (err) {
         setError(
           err instanceof ApiError
@@ -72,6 +95,106 @@ export default function CampaignDetailPage({
   }, [influencers, links]);
 
   const totalSpend = links.reduce((sum, l) => sum + Number(l.cost ?? 0), 0);
+
+  // Build metric lookup for each campaign influencer (creator-level metrics)
+  const ciMetricsByName = React.useMemo(() => {
+    const map = new Map<string, Map<string, Metric>>();
+    for (const m of metrics) {
+      if (m.post_id) continue; // only CI-level metrics
+      const ciMap = map.get(m.campaign_influencer_id) ?? new Map();
+      const existing = ciMap.get(m.metric_name);
+      if (!existing || (existing.source === "calculated" && m.source !== "calculated")) {
+        ciMap.set(m.metric_name, m);
+      }
+      map.set(m.campaign_influencer_id, ciMap);
+    }
+    return map;
+  }, [metrics]);
+
+  function getCiMetric(ciId: string, name: string): string | null {
+    const ciMap = ciMetricsByName.get(ciId);
+    if (!ciMap) return null;
+    const m = ciMap.get(name);
+    return m ? m.metric_value : null;
+  }
+
+  // Metric columns for creators table - standard KPIs
+  const creatorMetricNames = [
+    "views",
+    "reach",
+    "engagement_rate",
+    "cpv",
+    "cpm",
+    "cpa",
+    "roas",
+    "installs",
+    "leads",
+    "bookings",
+    "purchases",
+    "revenue",
+  ];
+
+  // Group post-scoped metrics by post
+  const metricsByPost = React.useMemo(() => {
+    const map = new Map<string, Metric[]>();
+    for (const m of metrics) {
+      if (!m.post_id) continue;
+      const arr = map.get(m.post_id) ?? [];
+      arr.push(m);
+      map.set(m.post_id, arr);
+    }
+    return map;
+  }, [metrics]);
+
+  // Metric columns for the posts table
+  const postMetricNames = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const m of metrics) if (m.post_id) set.add(m.metric_name);
+    const preferred = [
+      "likes",
+      "comments",
+      "views",
+      "engagement_rate",
+      "engagement_rate_reach",
+    ];
+    const rest = [...set].filter((n) => !preferred.includes(n)).sort();
+    return [...preferred.filter((n) => set.has(n)), ...rest];
+  }, [metrics]);
+
+  function postMetric(postId: string, name: string): string | null {
+    const rows = (metricsByPost.get(postId) ?? []).filter(
+      (m) => m.metric_name === name,
+    );
+    if (rows.length === 0) return null;
+    const manual = rows.filter((m) => m.source === "manual");
+    const pool = manual.length ? manual : rows;
+    return pool.reduce((a, b) => (a.captured_at > b.captured_at ? a : b))
+      .metric_value;
+  }
+
+  async function handleRecompute() {
+    setRecomputing(true);
+    try {
+      const recalculated = await api.campaigns.recomputeMetrics(id);
+      // Replace CI-level calculated metrics with fresh ones
+      const calculatedNames = new Set(recalculated.map((m) => m.metric_name));
+      setMetrics((prev) => [
+        ...prev.filter(
+          (m) =>
+            !(
+              m.source === "calculated" &&
+              !m.post_id &&
+              calculatedNames.has(m.metric_name)
+            ),
+        ),
+        ...recalculated,
+      ]);
+    } catch (err) {
+      console.error("Recompute failed", err);
+    } finally {
+      setRecomputing(false);
+    }
+  }
 
   async function handleRemove(linkId: string) {
     if (!confirm("Remove this creator from the campaign? (soft delete)")) return;
@@ -105,14 +228,16 @@ export default function CampaignDetailPage({
         description={campaign.brand ?? undefined}
         action={
           <div className="flex gap-2">
-            <a href={api.reports.exportCampaignUrl(id)}>
+            <a href={api.reports.exportCampaignCreatorsUrl(id)}>
               <Button variant="outline">
-                <Download /> Export Excel
+                <Download /> Creators
               </Button>
             </a>
-            <Button onClick={() => setShowAdd(true)}>
-              <Plus /> Add creator
-            </Button>
+            <a href={api.reports.exportCampaignPostsUrl(id)}>
+              <Button variant="outline">
+                <Download /> Posts
+              </Button>
+            </a>
           </div>
         }
       />
@@ -153,8 +278,21 @@ export default function CampaignDetailPage({
         ) : null}
 
         <Card>
-          <CardHeader>
+          <CardHeader className="flex-row items-center justify-between">
             <CardTitle>Creators in this campaign</CardTitle>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => setShowAdd(true)}>
+                <Plus /> Add creator
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleRecompute}
+                disabled={recomputing}
+              >
+                <RefreshCw /> {recomputing ? "Computing…" : "Recompute KPIs"}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {links.length === 0 ? (
@@ -170,6 +308,11 @@ export default function CampaignDetailPage({
                     <TableHead>City</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Cost</TableHead>
+                    {creatorMetricNames.map((n) => (
+                      <TableHead key={n} className="text-right">
+                        {metricLabel(n)}
+                      </TableHead>
+                    ))}
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -195,6 +338,18 @@ export default function CampaignDetailPage({
                           </Badge>
                         </TableCell>
                         <TableCell>{formatCurrency(l.cost)}</TableCell>
+                        {creatorMetricNames.map((n) => {
+                          const v = getCiMetric(l.id, n);
+                          return (
+                            <TableCell key={n} className="text-right tabular-nums">
+                              {v === null
+                                ? "—"
+                                : `${formatMetric(v)}${
+                                    n === "engagement_rate" ? "%" : ""
+                                  }`}
+                            </TableCell>
+                          );
+                        })}
                         <TableCell className="text-right">
                           <Button
                             variant="ghost"
@@ -210,6 +365,86 @@ export default function CampaignDetailPage({
                   })}
                 </TableBody>
               </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Live posts across all creators */}
+        <Card>
+          <CardHeader>
+            <CardTitle>All live posts & metrics</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {posts.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No live posts yet for this campaign. Add them on each
+                creator&apos;s detail page.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Creator</TableHead>
+                      <TableHead>Post</TableHead>
+                      <TableHead>Platform</TableHead>
+                      <TableHead>Posted</TableHead>
+                      {postMetricNames.map((n) => (
+                        <TableHead key={n} className="text-right">
+                          {metricLabel(n)}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {posts.map((post) => {
+                      const inf = nameById.get(
+                        links.find((l) => l.id === post.campaign_influencer_id)
+                          ?.influencer_id ?? ""
+                      );
+                      return (
+                        <TableRow key={post.id}>
+                          <TableCell className="font-medium">
+                            {inf?.name ?? "—"}
+                          </TableCell>
+                          <TableCell className="max-w-60">
+                            <a
+                              href={post.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex max-w-full items-center gap-1.5 truncate hover:underline"
+                            >
+                              <ExternalLink className="size-3.5 shrink-0" />
+                              <span className="truncate">{post.url}</span>
+                            </a>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{post.platform}</Badge>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-muted-foreground">
+                            {post.posted_at ? formatDate(post.posted_at) : "—"}
+                          </TableCell>
+                          {postMetricNames.map((n) => {
+                            const v = postMetric(post.id, n);
+                            return (
+                              <TableCell
+                                key={n}
+                                className="text-right tabular-nums"
+                              >
+                                {v === null
+                                  ? "—"
+                                  : `${formatMetric(v)}${
+                                      n.startsWith("engagement_rate") ? "%" : ""
+                                    }`}
+                              </TableCell>
+                            );
+                          })}
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -247,4 +482,18 @@ function Summary({
       <div className="mt-1.5 text-lg font-semibold">{children}</div>
     </div>
   );
+}
+
+function formatMetric(value: string): string {
+  const n = Number(value);
+  if (Number.isNaN(n)) return value;
+  const num = Number(n.toFixed(4));
+  if (Number.isInteger(num)) return String(num);
+  return String(num);
+}
+
+function metricLabel(name: string): string {
+  if (name === "engagement_rate") return "ER (followers)";
+  if (name === "engagement_rate_reach") return "ER (reach)";
+  return titleCase(name);
 }

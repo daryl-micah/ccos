@@ -86,8 +86,15 @@ function resource<T, C, U>(name: string) {
 }
 
 export const api = {
-  campaigns: resource<Campaign, Partial<Campaign>, Partial<Campaign>>(
-    "campaigns",
+  campaigns: Object.assign(
+    resource<Campaign, Partial<Campaign>, Partial<Campaign>>("campaigns"),
+    {
+      /** Recompute derived KPIs for every creator in the campaign. */
+      recomputeMetrics: (id: string) =>
+        request<Metric[]>(`/campaigns/${id}/recompute-metrics`, {
+          method: "POST",
+        }),
+    },
   ),
   influencers: Object.assign(
     resource<Influencer, Partial<Influencer>, Partial<Influencer>>(
@@ -161,9 +168,17 @@ export const api = {
     logout: () => request<void>("/instagram/logout", { method: "POST" }),
   },
   reports: {
-    /** Direct download URL for a campaign's Excel report. */
+    /** Direct download URL for a campaign's full Excel workbook. */
     exportCampaignUrl: (campaignId: string) =>
       `${BASE_URL}/export/campaigns/${campaignId}`,
+    /** Campaign-wise creators Excel. */
+    exportCampaignCreatorsUrl: (campaignId: string) =>
+      `${BASE_URL}/export/campaigns/${campaignId}/creators`,
+    /** Campaign-wise posts Excel. */
+    exportCampaignPostsUrl: (campaignId: string) =>
+      `${BASE_URL}/export/campaigns/${campaignId}/posts`,
+    /** Overall campaigns tracker Excel (all campaigns). */
+    exportTrackerUrl: () => `${BASE_URL}/export/tracker`,
     /** Upload a CSV/Excel file to bulk-create influencers. */
     importInfluencers: async (file: File): Promise<ImportResult> => {
       const body = new FormData();
