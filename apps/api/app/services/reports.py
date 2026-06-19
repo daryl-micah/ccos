@@ -8,6 +8,7 @@ workflow (see REQUIREMENT_DOC "Reports").
 import io
 import uuid
 from collections import defaultdict
+from dataclasses import dataclass
 from decimal import Decimal
 
 from openpyxl import Workbook
@@ -56,13 +57,32 @@ def _autosize(ws: Worksheet) -> None:
         )
 
 
+# Derived per-unit metrics that must be averaged, never summed, across rows.
+_RATE_METRICS = {"cpv", "cpm", "cpa", "roas"}
+
+
 def _aggregate(values: list[float], metric_name: str) -> float:
-    """Rates average; everything else sums."""
+    """Rates/derived metrics average; counts sum."""
     if not values:
         return 0.0
-    if metric_name.endswith("_rate"):
+    if (
+        metric_name.endswith("_rate")
+        or metric_name.endswith("_rate_reach")
+        or metric_name in _RATE_METRICS
+    ):
         return round(sum(values) / len(values), 4)
     return round(sum(values), 4)
+
+
+def _slug(name: str) -> str:
+    return "".join(c if c.isalnum() else "_" for c in name).strip("_") or "campaign"
+
+
+def _xlsx(wb: Workbook, filename: str) -> tuple[io.BytesIO, str]:
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf, filename
 
 
 async def build_campaign_report(
@@ -273,3 +293,330 @@ def _build_metrics_sheet(wb, cis, influencers, metrics, posts):
             ]
         )
     _autosize(ws)
+
+
+# --- Focused exports (creators / posts / overall tracker) --------------------
+
+
+@dataclass
+class _Bundle:
+    campaign: Campaign
+    cis: list[CampaignInfluencer]
+    influencers: dict[uuid.UUID, Influencer]
+    deliv_by_ci: dict[uuid.UUID, list[Deliverable]]
+    posts_by_ci: dict[uuid.UUID, list[Post]]
+    metrics_by_ci: dict[uuid.UUID, list[Metric]]
+    metrics_by_post: dict[uuid.UUID, list[Metric]]
+    followers: dict[uuid.UUID, float]  # influencer_id -> latest followers
+    repeat: set[uuid.UUID]  # influencers worked with on >1 campaign
+
+
+async def _latest_followers(db: AsyncSession, inf_ids: list[uuid.UUID]) -> dict:
+    rows = await db.scalars(
+        select(Metric)
+        .where(
+            Metric.influencer_id.in_(inf_ids or [uuid.uuid4()]),
+            Metric.metric_name == "followers",
+            Metric.deleted_at.is_(None),
+        )
+        .order_by(Metric.captured_at)  # ascending → last write wins (latest)
+    )
+    out: dict[uuid.UUID, float] = {}
+    for m in rows:
+        out[m.influencer_id] = float(m.metric_value)
+    return out
+
+
+async def _repeat_influencers(db: AsyncSession, inf_ids: list[uuid.UUID]) -> set:
+    rows = await db.scalars(
+        select(CampaignInfluencer).where(
+            CampaignInfluencer.influencer_id.in_(inf_ids or [uuid.uuid4()]),
+            CampaignInfluencer.deleted_at.is_(None),
+        )
+    )
+    campaigns_per_inf: dict[uuid.UUID, set] = defaultdict(set)
+    for ci in rows:
+        campaigns_per_inf[ci.influencer_id].add(ci.campaign_id)
+    return {inf for inf, camps in campaigns_per_inf.items() if len(camps) > 1}
+
+
+async def _load_bundle(db: AsyncSession, campaign_id: uuid.UUID) -> _Bundle | None:
+    campaign = await db.scalar(
+        select(Campaign).where(
+            Campaign.id == campaign_id, Campaign.deleted_at.is_(None)
+        )
+    )
+    if campaign is None:
+        return None
+
+    cis = list(
+        await db.scalars(
+            select(CampaignInfluencer).where(
+                CampaignInfluencer.campaign_id == campaign_id,
+                CampaignInfluencer.deleted_at.is_(None),
+            )
+        )
+    )
+    ci_ids = [ci.id for ci in cis]
+    inf_ids = [ci.influencer_id for ci in cis]
+
+    influencers = {
+        i.id: i
+        for i in await db.scalars(
+            select(Influencer).where(Influencer.id.in_(inf_ids or [uuid.uuid4()]))
+        )
+    }
+    deliverables = await db.scalars(
+        select(Deliverable).where(
+            Deliverable.campaign_influencer_id.in_(ci_ids or [uuid.uuid4()]),
+            Deliverable.deleted_at.is_(None),
+        )
+    )
+    posts = await db.scalars(
+        select(Post).where(
+            Post.campaign_influencer_id.in_(ci_ids or [uuid.uuid4()]),
+            Post.deleted_at.is_(None),
+        )
+    )
+    metrics = await db.scalars(
+        select(Metric).where(
+            Metric.campaign_influencer_id.in_(ci_ids or [uuid.uuid4()]),
+            Metric.deleted_at.is_(None),
+        )
+    )
+
+    deliv_by_ci: dict[uuid.UUID, list] = defaultdict(list)
+    for d in deliverables:
+        deliv_by_ci[d.campaign_influencer_id].append(d)
+    posts_by_ci: dict[uuid.UUID, list] = defaultdict(list)
+    for p in posts:
+        posts_by_ci[p.campaign_influencer_id].append(p)
+    metrics_by_ci: dict[uuid.UUID, list] = defaultdict(list)
+    metrics_by_post: dict[uuid.UUID, list] = defaultdict(list)
+    for m in metrics:
+        metrics_by_ci[m.campaign_influencer_id].append(m)
+        if m.post_id:
+            metrics_by_post[m.post_id].append(m)
+
+    return _Bundle(
+        campaign=campaign,
+        cis=cis,
+        influencers=influencers,
+        deliv_by_ci=deliv_by_ci,
+        posts_by_ci=posts_by_ci,
+        metrics_by_ci=metrics_by_ci,
+        metrics_by_post=metrics_by_post,
+        followers=await _latest_followers(db, inf_ids),
+        repeat=await _repeat_influencers(db, inf_ids),
+    )
+
+
+def _metric_columns(metric_lists, exclude: set[str] | None = None) -> list[str]:
+    """KEY_METRICS first, then any other metric names present, sorted."""
+    exclude = exclude or set()
+    extra = sorted(
+        {
+            m.metric_name
+            for ms in metric_lists
+            for m in ms
+            if m.metric_name not in KEY_METRICS and m.metric_name not in exclude
+        }
+    )
+    return [m for m in KEY_METRICS if m not in exclude] + extra
+
+
+async def build_campaign_creators_report(
+    db: AsyncSession, campaign_id: uuid.UUID
+) -> tuple[io.BytesIO, str] | None:
+    """Campaign-wise creator sheet: one row per creator with aggregated metrics."""
+    b = await _load_bundle(db, campaign_id)
+    if b is None:
+        return None
+
+    metric_cols = _metric_columns(b.metrics_by_ci.values())
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Creators"
+    _write_header(
+        ws,
+        [
+            "Creator",
+            "Instagram",
+            "Manager",
+            "Contact",
+            "City",
+            "Category",
+            "Status",
+            "Cost",
+            "Worked before",
+            "Deliverables",
+            "Posts",
+            "Followers",
+        ]
+        + [m.replace("_", " ").title() for m in metric_cols]
+        + ["Remarks"],
+    )
+
+    for ci in b.cis:
+        inf = b.influencers.get(ci.influencer_id)
+        by_name: dict[str, list[float]] = defaultdict(list)
+        for m in b.metrics_by_ci.get(ci.id, []):
+            by_name[m.metric_name].append(float(m.metric_value))
+        row = [
+            inf.name if inf else "Unknown",
+            (inf.instagram_username if inf else None) or "",
+            (inf.manager_name if inf else None) or "",
+            ((inf.email or inf.phone) if inf else None) or "",
+            (inf.city if inf else None) or "",
+            (inf.category if inf else None) or "",
+            ci.status,
+            _num(ci.cost),
+            "Yes" if inf and inf.id in b.repeat else "No",
+            len(b.deliv_by_ci.get(ci.id, [])),
+            len(b.posts_by_ci.get(ci.id, [])),
+            b.followers.get(ci.influencer_id, ""),
+        ]
+        row += [
+            _aggregate(by_name[m], m) if m in by_name else "" for m in metric_cols
+        ]
+        row.append(ci.remarks or "")
+        ws.append(row)
+
+    _autosize(ws)
+    return _xlsx(wb, f"{_slug(b.campaign.name)}_creators.xlsx")
+
+
+async def build_campaign_posts_report(
+    db: AsyncSession, campaign_id: uuid.UUID
+) -> tuple[io.BytesIO, str] | None:
+    """Campaign-wise posts sheet: one row per live post with its metrics."""
+    b = await _load_bundle(db, campaign_id)
+    if b is None:
+        return None
+
+    metric_cols = _metric_columns(b.metrics_by_post.values())
+    deliv_by_id = {d.id: d for ds in b.deliv_by_ci.values() for d in ds}
+    ci_by_id = {ci.id: ci for ci in b.cis}
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Posts"
+    _write_header(
+        ws,
+        ["Posted at", "Creator", "Instagram", "Platform", "Live link", "Deliverable"]
+        + [m.replace("_", " ").title() for m in metric_cols],
+    )
+    for ci_id, items in b.posts_by_ci.items():
+        ci = ci_by_id.get(ci_id)
+        inf = b.influencers.get(ci.influencer_id) if ci else None
+        for p in items:
+            latest: dict[str, float] = {}
+            for m in b.metrics_by_post.get(p.id, []):
+                latest[m.metric_name] = float(m.metric_value)
+            deliv = deliv_by_id.get(p.deliverable_id) if p.deliverable_id else None
+            ws.append(
+                [
+                    str(p.posted_at) if p.posted_at else "",
+                    inf.name if inf else "Unknown",
+                    (inf.instagram_username if inf else None) or "",
+                    p.platform,
+                    p.url,
+                    deliv.type if deliv else "",
+                ]
+                + [latest.get(m, "") for m in metric_cols]
+            )
+
+    _autosize(ws)
+    return _xlsx(wb, f"{_slug(b.campaign.name)}_posts.xlsx")
+
+
+async def build_tracker_report(db: AsyncSession) -> tuple[io.BytesIO, str]:
+    """Overall campaigns tracker: one row per campaign with aggregated funnel."""
+    campaigns = list(
+        await db.scalars(
+            select(Campaign)
+            .where(Campaign.deleted_at.is_(None))
+            .order_by(Campaign.created_at)
+        )
+    )
+    cis = list(
+        await db.scalars(
+            select(CampaignInfluencer).where(CampaignInfluencer.deleted_at.is_(None))
+        )
+    )
+    posts = list(
+        await db.scalars(select(Post).where(Post.deleted_at.is_(None)))
+    )
+    metrics = list(
+        await db.scalars(
+            select(Metric).where(
+                Metric.deleted_at.is_(None),
+                Metric.campaign_influencer_id.is_not(None),
+            )
+        )
+    )
+
+    ci_to_campaign = {ci.id: ci.campaign_id for ci in cis}
+    cis_by_campaign: dict[uuid.UUID, list] = defaultdict(list)
+    for ci in cis:
+        cis_by_campaign[ci.campaign_id].append(ci)
+    posts_by_campaign: dict[uuid.UUID, int] = defaultdict(int)
+    for p in posts:
+        cid = ci_to_campaign.get(p.campaign_influencer_id)
+        if cid:
+            posts_by_campaign[cid] += 1
+
+    # campaign_id -> {metric_name -> [values]}; post metrics roll up too.
+    by_campaign: dict[uuid.UUID, dict[str, list]] = defaultdict(
+        lambda: defaultdict(list)
+    )
+    for m in metrics:
+        cid = ci_to_campaign.get(m.campaign_influencer_id)
+        if cid:
+            by_campaign[cid][m.metric_name].append(float(m.metric_value))
+
+    # revenue/roas get explicit columns below; don't duplicate them.
+    extra = sorted(
+        {
+            name
+            for camp in by_campaign.values()
+            for name in camp
+            if name not in KEY_METRICS and name not in {"revenue", "roas"}
+        }
+    )
+    metric_cols = KEY_METRICS + extra
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Tracker"
+    _write_header(
+        ws,
+        ["Campaign", "Brand", "Status", "Budget", "Start", "End", "Creators", "Posts", "Spend"]
+        + [m.replace("_", " ").title() for m in metric_cols]
+        + ["Revenue", "ROAS"],
+    )
+    for c in campaigns:
+        camp_cis = cis_by_campaign.get(c.id, [])
+        spend = sum(float(ci.cost) for ci in camp_cis if ci.cost is not None)
+        by_name = by_campaign.get(c.id, {})
+        revenue = sum(by_name.get("revenue", []))
+        roas = round(revenue / spend, 4) if spend > 0 and revenue else ""
+        row = [
+            c.name,
+            c.brand or "",
+            c.status,
+            _num(c.budget),
+            str(c.start_date) if c.start_date else "",
+            str(c.end_date) if c.end_date else "",
+            len(camp_cis),
+            posts_by_campaign.get(c.id, 0),
+            round(spend, 2),
+        ]
+        row += [
+            _aggregate(by_name[m], m) if m in by_name else "" for m in metric_cols
+        ]
+        row += [round(revenue, 2) if revenue else "", roas]
+        ws.append(row)
+
+    _autosize(ws)
+    return _xlsx(wb, "campaigns_tracker.xlsx")

@@ -11,7 +11,12 @@ from app.crud import CRUD
 from app.models import Influencer
 from app.schemas.influencer import InfluencerCreate, InfluencerOut
 from app.services.imports import parse_influencer_rows
-from app.services.reports import build_campaign_report
+from app.services.reports import (
+    build_campaign_creators_report,
+    build_campaign_posts_report,
+    build_campaign_report,
+    build_tracker_report,
+)
 
 router = APIRouter(tags=["reports"])
 
@@ -22,15 +27,7 @@ XLSX_MEDIA_TYPE = (
 influencer_crud = CRUD(Influencer)
 
 
-@router.get("/export/campaigns/{campaign_id}")
-async def export_campaign(
-    campaign_id: uuid.UUID, db: AsyncSession = Depends(get_db)
-):
-    """Download a readable Excel report for the campaign."""
-    result = await build_campaign_report(db, campaign_id)
-    if result is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Campaign not found")
-    buf, filename = result
+def _xlsx_response(buf, filename: str) -> StreamingResponse:
     return StreamingResponse(
         buf,
         media_type=XLSX_MEDIA_TYPE,
@@ -38,6 +35,46 @@ async def export_campaign(
             "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"
         },
     )
+
+
+@router.get("/export/campaigns/{campaign_id}")
+async def export_campaign(
+    campaign_id: uuid.UUID, db: AsyncSession = Depends(get_db)
+):
+    """Download a full Excel workbook (creators, deliverables, posts, metrics)."""
+    result = await build_campaign_report(db, campaign_id)
+    if result is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Campaign not found")
+    return _xlsx_response(*result)
+
+
+@router.get("/export/campaigns/{campaign_id}/creators")
+async def export_campaign_creators(
+    campaign_id: uuid.UUID, db: AsyncSession = Depends(get_db)
+):
+    """Campaign-wise creators Excel (one row per creator + metrics)."""
+    result = await build_campaign_creators_report(db, campaign_id)
+    if result is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Campaign not found")
+    return _xlsx_response(*result)
+
+
+@router.get("/export/campaigns/{campaign_id}/posts")
+async def export_campaign_posts(
+    campaign_id: uuid.UUID, db: AsyncSession = Depends(get_db)
+):
+    """Campaign-wise posts Excel (one row per live post + metrics)."""
+    result = await build_campaign_posts_report(db, campaign_id)
+    if result is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Campaign not found")
+    return _xlsx_response(*result)
+
+
+@router.get("/export/tracker")
+async def export_tracker(db: AsyncSession = Depends(get_db)):
+    """Overall campaigns tracker Excel (all campaigns, aggregated)."""
+    buf, filename = await build_tracker_report(db)
+    return _xlsx_response(buf, filename)
 
 
 class ImportResult(BaseModel):
