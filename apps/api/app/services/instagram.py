@@ -1,9 +1,10 @@
 """Instagram collector (REQUIREMENT_DOC Phase 3).
 
 Uses instagrapi (private API wrapper) for reliable authenticated access —
-Instagram blocks anonymous scraping, so a login is required. We persist
-instagrapi's session settings (never the password) and support both a
-username/password login and a browser ``sessionid`` cookie.
+Instagram blocks anonymous scraping, so a login is required. A single shared
+account is configured via env (``INSTAGRAM_USERNAME``/``INSTAGRAM_PASSWORD``,
+falling back to ``INSTAGRAM_SESSIONID``); the resulting session is persisted
+(never the password) and reused across calls.
 
 Fetched aggregates are stored as influencer-scoped metrics
 (``source=instagram``); each sync is a timestamped snapshot, which doubles
@@ -122,7 +123,7 @@ def top_posts(profile: IgProfile, limit: int = 3) -> list[IgPost]:
     return sorted(profile.posts, key=lambda p: p.likes, reverse=True)[:limit]
 
 
-# --- Session management (Connect Instagram) ----------------------------------
+# --- Session management (env-authenticated) ----------------------------------
 
 
 def _session_dir() -> Path:
@@ -166,90 +167,69 @@ def get_status() -> dict:
             "username": settings.instagram_username,
             "source": "env",
         }
+    if settings.instagram_sessionid:
+        return {"connected": True, "username": None, "source": "env"}
     return {"connected": False, "username": None, "source": None}
 
 
-def _persist(client, username: str) -> dict:
+def _persist(client, username: str) -> None:
     client.dump_settings(str(_settings_file(username)))
     _state_file().write_text(json.dumps({"username": username}))
-    return {"connected": True, "username": username, "source": "session"}
 
 
-def login(username: str, password: str) -> dict:
-    """Username/password login (handles challenges where possible)."""
-    from instagrapi import Client
-    from instagrapi.exceptions import (
-        BadPassword,
-        ChallengeRequired,
-        TwoFactorRequired,
-    )
+def _login_from_env(client) -> str:
+    """Authenticate ``client`` from env credentials; returns the username.
 
-    client = Client()
-    try:
-        client.login(username, password)
-    except TwoFactorRequired as exc:
-        raise InstagramError(
-            "This account uses two-factor auth. Use the sessionid method instead."
-        ) from exc
-    except BadPassword as exc:
-        raise InstagramError("Incorrect Instagram username or password.") from exc
-    except ChallengeRequired as exc:
-        raise InstagramError(
-            "Instagram requires verification for this login. Open Instagram, "
-            "approve the login, then use the sessionid method."
-        ) from exc
-    except Exception as exc:  # noqa: BLE001
-        raise InstagramError(f"Login failed: {exc}") from exc
+    Username/password is tried first; on any failure (2FA, challenge, block) it
+    falls back to the ``INSTAGRAM_SESSIONID`` cookie, which is more reliable.
+    """
+    from app.core.config import settings
 
-    return _persist(client, username)
-
-
-def login_with_sessionid(sessionid: str) -> dict:
-    """Connect using a browser ``sessionid`` cookie (most reliable method)."""
-    from instagrapi import Client
-
-    client = Client()
-    try:
-        client.login_by_sessionid(sessionid.strip())
-    except Exception as exc:  # noqa: BLE001
-        raise InstagramError(
-            f"That sessionid didn't authenticate ({exc}). Make sure you're logged "
-            "in to Instagram and copied a fresh sessionid cookie."
-        ) from exc
-
-    username = client.username
-    if not username:
+    password_error: Exception | None = None
+    if settings.instagram_username and settings.instagram_password:
         try:
-            username = client.account_info().username
-        except Exception as exc:  # noqa: BLE001
-            raise InstagramError(f"Could not read the session account: {exc}") from exc
+            client.login(settings.instagram_username, settings.instagram_password)
+            return settings.instagram_username
+        except Exception as exc:  # noqa: BLE001 - fall back to the sessionid
+            password_error = exc
 
-    return _persist(client, username)
+    if settings.instagram_sessionid:
+        client.login_by_sessionid(settings.instagram_sessionid.strip())
+        return client.username or client.account_info().username
 
-
-def logout() -> None:
-    username = _connected_username()
-    if username:
-        _settings_file(username).unlink(missing_ok=True)
-    _state_file().unlink(missing_ok=True)
+    if password_error is not None:
+        raise NotConnectedError(
+            f"Instagram username/password login failed ({password_error}) and no "
+            "INSTAGRAM_SESSIONID fallback is set."
+        )
+    raise NotConnectedError(
+        "Set INSTAGRAM_USERNAME/INSTAGRAM_PASSWORD or INSTAGRAM_SESSIONID."
+    )
 
 
 def _authenticated_client():
-    """Build a client from the saved session or env credentials."""
-    from instagrapi import Client
+    """Build a client from the persisted session, or authenticate from env.
 
-    from app.core.config import settings
+    The first env login is persisted under ``instagram_session_dir`` and reused
+    on later calls, so we don't re-login on every fetch.
+    """
+    from instagrapi import Client
 
     username = _connected_username()
     if username:
         client = Client()
         client.load_settings(str(_settings_file(username)))
         return client
-    if settings.instagram_username and settings.instagram_password:
-        client = Client()
-        client.login(settings.instagram_username, settings.instagram_password)
-        return client
-    raise NotConnectedError("Connect Instagram before collecting profile data.")
+
+    client = Client()
+    try:
+        username = _login_from_env(client)
+    except NotConnectedError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise NotConnectedError(f"Instagram login failed: {exc}") from exc
+    _persist(client, username)
+    return client
 
 
 def fetch_profile(username: str, max_posts: int = DEFAULT_MAX_POSTS) -> IgProfile:

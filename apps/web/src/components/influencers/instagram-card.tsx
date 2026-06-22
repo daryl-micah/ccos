@@ -1,13 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { ExternalLink, Instagram, Plug, RefreshCw } from "lucide-react";
+import { ExternalLink, Instagram, RefreshCw } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import type { InstagramPost, InstagramStatus, Metric } from "@/lib/types";
+import type { InstagramPost, Metric } from "@/lib/types";
 import { formatNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ConnectInstagramModal } from "@/components/influencers/connect-instagram";
 
 // `decimals` keeps fractional precision for rate-style metrics; count metrics
 // (followers, likes, comments, posts) render as whole numbers.
@@ -64,24 +63,8 @@ export function InstagramCard({
   const [topPosts, setTopPosts] = React.useState<InstagramPost[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [status, setStatus] = React.useState<InstagramStatus | null>(null);
-  const [connectOpen, setConnectOpen] = React.useState(false);
-
-  React.useEffect(() => {
-    (async () => {
-      try {
-        setStatus(await api.instagram.status());
-      } catch {
-        setStatus({ connected: false, username: null, source: null });
-      }
-    })();
-  }, []);
 
   async function sync() {
-    if (status && !status.connected) {
-      setConnectOpen(true);
-      return;
-    }
     setBusy(true);
     setError(null);
     try {
@@ -100,62 +83,24 @@ export function InstagramCard({
       setTopPosts(r.top_posts);
       setLastSynced(new Date().toISOString());
     } catch (err) {
-      if (err instanceof ApiError && err.status === 409) {
-        // Not connected — prompt login.
-        setStatus({ connected: false, username: null, source: null });
-        setConnectOpen(true);
-      } else {
-        setError(err instanceof ApiError ? err.message : "Sync failed.");
-      }
+      setError(err instanceof ApiError ? err.message : "Sync failed.");
     } finally {
       setBusy(false);
     }
   }
 
-  async function disconnect() {
-    await api.instagram.logout();
-    setStatus({ connected: false, username: null, source: null });
-  }
-
   const hasData = Object.keys(values).length > 0;
-  const connected = status?.connected ?? false;
 
   return (
-    <>
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2">
           <Instagram className="size-4" /> Instagram
-          {connected && status?.username ? (
-            <span className="text-xs font-normal text-muted-foreground">
-              · connected as @{status.username}
-            </span>
-          ) : null}
         </CardTitle>
         {instagramUsername ? (
-          <div className="flex items-center gap-2">
-            {connected ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={disconnect}
-                className="text-muted-foreground"
-              >
-                Disconnect
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setConnectOpen(true)}
-              >
-                <Plug /> Connect Instagram
-              </Button>
-            )}
-            <Button size="sm" onClick={sync} disabled={busy}>
-              <RefreshCw /> {busy ? "Syncing…" : "Sync"}
-            </Button>
-          </div>
+          <Button size="sm" onClick={sync} disabled={busy}>
+            <RefreshCw /> {busy ? "Syncing…" : "Sync"}
+          </Button>
         ) : null}
       </CardHeader>
       <CardContent>
@@ -232,15 +177,5 @@ export function InstagramCard({
         )}
       </CardContent>
     </Card>
-
-    <ConnectInstagramModal
-      open={connectOpen}
-      onClose={() => setConnectOpen(false)}
-      onConnected={(s) => {
-        setStatus(s);
-        setConnectOpen(false);
-      }}
-    />
-    </>
   );
 }

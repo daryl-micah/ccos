@@ -15,11 +15,14 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://ccos:ccos@localhost:5433/ccos"
     redis_url: str = "redis://localhost:6379/0"
 
-    # Instagram (Phase 3). Login is required — connect from the UI, or set
-    # these env credentials for an automatic/server-side session. Sessions are
+    # Instagram (Phase 3). A single shared/server-side account authenticates all
+    # collection. Username/password is tried first; if that login fails (2FA,
+    # challenge, block), it falls back to ``instagram_sessionid`` (a browser
+    # sessionid cookie, the more reliable method). The resulting session is
     # persisted under ``instagram_session_dir`` (password is never stored).
     instagram_username: str = ""
     instagram_password: str = ""
+    instagram_sessionid: str = ""
     instagram_session_dir: str = "instagram_sessions"
 
     # AI layer (Phase 8) — powered by Groq. Leave the key blank to disable.

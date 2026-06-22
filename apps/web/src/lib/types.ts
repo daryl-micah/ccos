@@ -126,12 +126,6 @@ export type Trends = Record<string, TrendPoint[]>;
 
 // --- Instagram (Phase 3) ---
 
-export interface InstagramStatus {
-  connected: boolean;
-  username: string | null;
-  source: "session" | "env" | null;
-}
-
 export interface InstagramPost {
   shortcode: string;
   likes: number;

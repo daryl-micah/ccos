@@ -9,7 +9,6 @@ import type {
   Deliverable,
   GroupRanking,
   Influencer,
-  InstagramStatus,
   InstagramSyncResult,
   Metric,
   Post,
@@ -178,20 +177,6 @@ export const api = {
     status: () => request<AIStatus>("/ai/status"),
     generateInsights: () =>
       request<AIInsights>("/ai/insights", { method: "POST" }),
-  },
-  instagram: {
-    status: () => request<InstagramStatus>("/instagram/status"),
-    loginWithSession: (sessionid: string) =>
-      request<InstagramStatus>("/instagram/login", {
-        method: "POST",
-        body: JSON.stringify({ sessionid }),
-      }),
-    login: (username: string, password: string) =>
-      request<InstagramStatus>("/instagram/login", {
-        method: "POST",
-        body: JSON.stringify({ username, password }),
-      }),
-    logout: () => request<void>("/instagram/logout", { method: "POST" }),
   },
   reports: {
     /** Direct download URL for a campaign's full Excel workbook. */

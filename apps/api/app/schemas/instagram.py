@@ -11,13 +11,6 @@ class InstagramStatus(BaseModel):
     source: str | None = None
 
 
-class InstagramLoginRequest(BaseModel):
-    # Either provide a browser sessionid (recommended), or username + password.
-    sessionid: str | None = None
-    username: str | None = None
-    password: str | None = None
-
-
 class InstagramPostOut(BaseModel):
     shortcode: str
     likes: int
