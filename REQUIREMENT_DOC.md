@@ -1074,6 +1074,21 @@ Running log of scope decisions made during development.
   counts summed, rates/derived averaged, revenue + ROAS). Funnel metrics
   (leads, calls, walk-ins, etc.) appear as dynamic columns once tracked.
   Buttons: Creators/Posts on campaign detail, Tracker on campaigns list.
+* **POA - Supply single-sheet export (primary)** — the main campaign export
+  button now produces a single "POA - Supply" sheet
+  (`/export/campaigns/{id}/poa`), one row per live post, matching the
+  marketing team's master tracker layout (Live Month, Platform, Content Type,
+  Agency, Creator, Profile, City, Language, Amount Paid, Live/Payment status,
+  Video Live Link, Views, Comments, Likes, Shares, ER %, Actual CPV,
+  Performance cuts, Leads Generated). CPV is computed per post as cost/views.
+  Untracked columns (payment status, shares, performance cuts, leads) are kept
+  as blank placeholders to preserve the familiar layout. The earlier
+  per-creator and per-post extracts moved from the page header down beside
+  their own table cards.
+* **Creators table trimmed to CPV + ER** — the per-creator metrics table on
+  campaign detail now shows only Actual CPV and ER; the other KPIs (views,
+  reach, cpm, cpa, roas, installs, leads, bookings, purchases, revenue) were
+  dropped because they never populate in practice.
 * **Auto post metrics (Phase 3)** — adding an Instagram live post link
   auto-fetches its likes, comments, views (reels), stored as post-scoped
   metrics (idempotent re-sync). **Shares & reposts are not exposed by

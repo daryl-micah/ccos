@@ -13,6 +13,7 @@ from app.schemas.influencer import InfluencerCreate, InfluencerOut
 from app.services.imports import parse_influencer_rows
 from app.services.reports import (
     build_campaign_creators_report,
+    build_campaign_poa_report,
     build_campaign_posts_report,
     build_campaign_report,
     build_tracker_report,
@@ -43,6 +44,17 @@ async def export_campaign(
 ):
     """Download a full Excel workbook (creators, deliverables, posts, metrics)."""
     result = await build_campaign_report(db, campaign_id)
+    if result is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Campaign not found")
+    return _xlsx_response(*result)
+
+
+@router.get("/export/campaigns/{campaign_id}/poa")
+async def export_campaign_poa(
+    campaign_id: uuid.UUID, db: AsyncSession = Depends(get_db)
+):
+    """Single 'POA - Supply' sheet (one row per live post, master-tracker layout)."""
+    result = await build_campaign_poa_report(db, campaign_id)
     if result is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Campaign not found")
     return _xlsx_response(*result)

@@ -542,6 +542,132 @@ async def build_campaign_posts_report(
     return _xlsx(wb, f"{_slug(b.campaign.name)}_posts.xlsx")
 
 
+# Single-sheet "POA - Supply" export — mirrors the marketing team's master
+# tracker (one row per live post). Only metrics that actually populate are
+# surfaced; untracked columns (payment status, shares, performance cuts,
+# leads) are kept as blank placeholders to preserve the familiar layout.
+POA_HEADERS = [
+    "Live Month",
+    "Platform",
+    "Content Type",
+    "Agency Name",
+    "Creator Name",
+    "Profile",
+    "City",
+    "Language",
+    "Amount Paid",
+    "Live Status",
+    "Payment status",
+    "Video Live Link",
+    "Views",
+    "Comments",
+    "Likes",
+    "Shares",
+    "ER %",
+    "Actual CPV",
+    "Performance cuts",
+    "Leads Generated",
+]
+
+
+async def build_campaign_poa_report(
+    db: AsyncSession, campaign_id: uuid.UUID
+) -> tuple[io.BytesIO, str] | None:
+    """Single 'POA - Supply' sheet: one row per live post (master-tracker layout)."""
+    b = await _load_bundle(db, campaign_id)
+    if b is None:
+        return None
+
+    deliv_by_id = {d.id: d for ds in b.deliv_by_ci.values() for d in ds}
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "POA - Supply"
+    _write_header(ws, POA_HEADERS)
+
+    for ci in b.cis:
+        inf = b.influencers.get(ci.influencer_id)
+        agency = b.agencies.get(ci.agency_id) if ci.agency_id else None
+        agency_name = agency.name if agency else "In-house"
+        creator = inf.name if inf else "Unknown"
+        profile = (
+            f"https://www.instagram.com/{inf.instagram_username}"
+            if inf and inf.instagram_username
+            else ""
+        )
+        city = (inf.city if inf else None) or ""
+        language = (inf.language if inf else None) or ""
+        cost = _num(ci.cost)
+        category = (inf.category if inf else None) or ""
+
+        posts = b.posts_by_ci.get(ci.id, [])
+        if not posts:
+            # No live post yet — emit a WIP placeholder row.
+            ws.append(
+                [
+                    "",
+                    "Instagram",
+                    category,
+                    agency_name,
+                    creator,
+                    profile,
+                    city,
+                    language,
+                    cost,
+                    ci.status.replace("_", " ").title(),
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                ]
+            )
+            continue
+
+        for p in posts:
+            latest: dict[str, float] = {}
+            for m in b.metrics_by_post.get(p.id, []):
+                latest[m.metric_name] = float(m.metric_value)
+            views = latest.get("views")
+            deliv = deliv_by_id.get(p.deliverable_id) if p.deliverable_id else None
+            content_type = (deliv.type if deliv else None) or category
+            cpv = (
+                round(cost / views, 4) if cost is not None and views else ""
+            )
+            ws.append(
+                [
+                    str(p.posted_at.date()) if p.posted_at else "",
+                    p.platform or "Instagram",
+                    content_type,
+                    agency_name,
+                    creator,
+                    profile,
+                    city,
+                    language,
+                    cost,
+                    "Live",
+                    "",  # Payment status — not tracked
+                    p.url,
+                    views if views is not None else "",
+                    latest.get("comments", ""),
+                    latest.get("likes", ""),
+                    "",  # Shares — not tracked
+                    latest.get("engagement_rate", ""),
+                    cpv,
+                    "",  # Performance cuts — not tracked
+                    "",  # Leads Generated — not tracked
+                ]
+            )
+
+    _autosize(ws)
+    return _xlsx(wb, f"{_slug(b.campaign.name)}_poa.xlsx")
+
+
 async def build_tracker_report(db: AsyncSession) -> tuple[io.BytesIO, str]:
     """Overall campaigns tracker: one row per campaign with aggregated funnel."""
     campaigns = list(

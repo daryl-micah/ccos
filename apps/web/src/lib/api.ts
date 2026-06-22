@@ -182,6 +182,9 @@ export const api = {
     /** Direct download URL for a campaign's full Excel workbook. */
     exportCampaignUrl: (campaignId: string) =>
       `${BASE_URL}/export/campaigns/${campaignId}`,
+    /** Single 'POA - Supply' sheet (one row per live post, master-tracker layout). */
+    exportCampaignPoaUrl: (campaignId: string) =>
+      `${BASE_URL}/export/campaigns/${campaignId}/poa`,
     /** Campaign-wise creators Excel. */
     exportCampaignCreatorsUrl: (campaignId: string) =>
       `${BASE_URL}/export/campaigns/${campaignId}/creators`,

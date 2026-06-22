@@ -118,43 +118,61 @@ export default function CampaignDetailPage({
 
   const totalSpend = links.reduce((sum, l) => sum + Number(l.cost ?? 0), 0);
 
-  // Build metric lookup for each campaign influencer (creator-level metrics)
-  const ciMetricsByName = React.useMemo(() => {
-    const map = new Map<string, Map<string, Metric>>();
+  // Roll up each creator's metrics for the table. Post-scoped metrics (from a
+  // synced reel) count toward the creator: counts sum across their posts,
+  // rates prefer a CI-level value (recompute/manual) else average the posts'.
+  const RATE_NAMES = React.useMemo(
+    () =>
+      new Set([
+        "engagement_rate",
+        "engagement_rate_reach",
+        "cpv",
+        "cpm",
+        "cpa",
+        "roas",
+      ]),
+    [],
+  );
+
+  type Agg = { sum: number; count: number; ci: { value: number; source: string } | null };
+
+  const creatorAgg = React.useMemo(() => {
+    const map = new Map<string, Map<string, Agg>>();
     for (const m of metrics) {
-      if (m.post_id) continue; // only CI-level metrics
-      const ciMap = map.get(m.campaign_influencer_id) ?? new Map();
-      const existing = ciMap.get(m.metric_name);
-      if (!existing || (existing.source === "calculated" && m.source !== "calculated")) {
-        ciMap.set(m.metric_name, m);
+      const ciId = m.campaign_influencer_id;
+      if (!ciId) continue;
+      const v = Number(m.metric_value);
+      if (Number.isNaN(v)) continue;
+      const nameMap = map.get(ciId) ?? new Map<string, Agg>();
+      const e: Agg = nameMap.get(m.metric_name) ?? { sum: 0, count: 0, ci: null };
+      e.sum += v;
+      e.count += 1;
+      if (!m.post_id) {
+        // CI-level value; manual beats calculated.
+        if (!e.ci || (e.ci.source === "calculated" && m.source !== "calculated")) {
+          e.ci = { value: v, source: m.source };
+        }
       }
-      map.set(m.campaign_influencer_id, ciMap);
+      nameMap.set(m.metric_name, e);
+      map.set(ciId, nameMap);
     }
     return map;
   }, [metrics]);
 
-  function getCiMetric(ciId: string, name: string): string | null {
-    const ciMap = ciMetricsByName.get(ciId);
-    if (!ciMap) return null;
-    const m = ciMap.get(name);
-    return m ? m.metric_value : null;
+  function getCiMetric(ciId: string, name: string): number | null {
+    const e = creatorAgg.get(ciId)?.get(name);
+    if (!e || e.count === 0) return null;
+    if (RATE_NAMES.has(name)) {
+      return e.ci ? e.ci.value : e.sum / e.count;
+    }
+    // Counts: a manual CI-level entry overrides; otherwise sum (e.g. posts).
+    if (e.ci && e.ci.source !== "calculated") return e.ci.value;
+    return e.sum;
   }
 
-  // Metric columns for creators table - standard KPIs
-  const creatorMetricNames = [
-    "views",
-    "reach",
-    "engagement_rate",
-    "cpv",
-    "cpm",
-    "cpa",
-    "roas",
-    "installs",
-    "leads",
-    "bookings",
-    "purchases",
-    "revenue",
-  ];
+  // Metric columns for creators table. Only CPV and ER actually populate;
+  // the other KPIs were dropped since they never have data.
+  const creatorMetricNames = ["cpv", "engagement_rate"];
 
   // Group post-scoped metrics by post
   const metricsByPost = React.useMemo(() => {
@@ -249,18 +267,11 @@ export default function CampaignDetailPage({
         title={campaign.name}
         description={campaign.brand ?? undefined}
         action={
-          <div className="flex gap-2">
-            <a href={api.reports.exportCampaignCreatorsUrl(id)}>
-              <Button variant="outline">
-                <Download /> Creators
-              </Button>
-            </a>
-            <a href={api.reports.exportCampaignPostsUrl(id)}>
-              <Button variant="outline">
-                <Download /> Posts
-              </Button>
-            </a>
-          </div>
+          <a href={api.reports.exportCampaignPoaUrl(id)}>
+            <Button>
+              <Download /> Export
+            </Button>
+          </a>
         }
       />
       <div className="space-y-6 p-8">
@@ -321,6 +332,11 @@ export default function CampaignDetailPage({
               >
                 <RefreshCw /> {recomputing ? "Computing…" : "Recompute KPIs"}
               </Button>
+              <a href={api.reports.exportCampaignCreatorsUrl(id)}>
+                <Button size="sm" variant="outline">
+                  <Download /> Export
+                </Button>
+              </a>
             </div>
           </CardHeader>
           <CardContent>
@@ -407,8 +423,13 @@ export default function CampaignDetailPage({
 
         {/* Live posts across all creators */}
         <Card>
-          <CardHeader>
+          <CardHeader className="flex-row items-center justify-between">
             <CardTitle>All live posts & metrics</CardTitle>
+            <a href={api.reports.exportCampaignPostsUrl(id)}>
+              <Button size="sm" variant="outline">
+                <Download /> Export
+              </Button>
+            </a>
           </CardHeader>
           <CardContent>
             {posts.length === 0 ? (
@@ -528,15 +549,14 @@ function Summary({
   );
 }
 
-function formatMetric(value: string): string {
+function formatMetric(value: string | number): string {
   const n = Number(value);
-  if (Number.isNaN(n)) return value;
-  const num = Number(n.toFixed(4));
-  if (Number.isInteger(num)) return String(num);
-  return String(num);
+  if (Number.isNaN(n)) return String(value);
+  return String(Number(n.toFixed(4)));
 }
 
 function metricLabel(name: string): string {
+  if (name === "cpv") return "Actual CPV";
   if (name === "engagement_rate") return "ER (followers)";
   if (name === "engagement_rate_reach") return "ER (reach)";
   return titleCase(name);
