@@ -12,16 +12,21 @@ import { Textarea } from "@/components/ui/textarea";
 const STATUSES: CampaignStatus[] = ["draft", "active", "completed"];
 
 export function CampaignForm({
+  campaign,
   onCreated,
+  onUpdated,
   onCancel,
 }: {
-  onCreated: (campaign: Campaign) => void;
+  campaign?: Campaign;
+  onCreated?: (campaign: Campaign) => void;
+  onUpdated?: (campaign: Campaign) => void;
   onCancel: () => void;
 }) {
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const isEditing = !!campaign;
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
     setError(null);
@@ -30,17 +35,24 @@ export function CampaignForm({
       name: String(form.get("name")).trim(),
       brand: emptyToNull(form.get("brand")),
       objective: emptyToNull(form.get("objective")),
-      budget: computeBudget(form.get("budget_amount"), form.get("budget_unit")),
+      budget: emptyToNull(form.get("budget")),
       status: form.get("status") as CampaignStatus,
       start_date: emptyToNull(form.get("start_date")),
       end_date: emptyToNull(form.get("end_date")),
       notes: emptyToNull(form.get("notes")),
     };
     try {
-      const created = await api.campaigns.create(payload);
-      onCreated(created);
+      if (isEditing && campaign) {
+        const updated = await api.campaigns.update(campaign.id, payload);
+        onUpdated?.(updated);
+      } else {
+        const created = await api.campaigns.create(payload);
+        onCreated?.(created);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create campaign");
+      setError(
+        err instanceof Error ? err.message : "Failed to save campaign",
+      );
     } finally {
       setSaving(false);
     }
@@ -49,42 +61,42 @@ export function CampaignForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Field label="Name" required>
-        <Input name="name" required placeholder="Bangalore Launch" />
+        <Input
+          name="name"
+          required
+          placeholder="Bangalore Launch"
+          defaultValue={campaign?.name ?? ""}
+        />
       </Field>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Brand">
-          <Input name="brand" placeholder="Pronto" />
+          <Input
+            name="brand"
+            placeholder="Pronto"
+            defaultValue={campaign?.brand ?? ""}
+          />
         </Field>
         <Field label="Budget (₹)">
-          <div className="flex gap-2">
-            <Input
-              name="budget_amount"
-              type="number"
-              min="0"
-              step="any"
-              placeholder="45.29"
-              className="flex-1"
-            />
-            <Select
-              name="budget_unit"
-              defaultValue="1"
-              aria-label="Budget unit"
-              className="w-20"
-            >
-              <option value="1">₹</option>
-              <option value="1000">K</option>
-              <option value="100000">L</option>
-              <option value="10000000">Cr</option>
-            </Select>
-          </div>
+          <Input
+            name="budget"
+            type="number"
+            min="0"
+            step="any"
+            placeholder="0"
+            defaultValue={campaign?.budget ?? ""}
+          />
         </Field>
       </div>
       <Field label="Objective">
-        <Input name="objective" placeholder="Drive app installs in Bangalore" />
+        <Input
+          name="objective"
+          placeholder="Drive app installs in Bangalore"
+          defaultValue={campaign?.objective ?? ""}
+        />
       </Field>
       <div className="grid grid-cols-3 gap-4">
         <Field label="Status">
-          <Select name="status" defaultValue="draft">
+          <Select name="status" defaultValue={campaign?.status ?? "draft"}>
             {STATUSES.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -93,14 +105,26 @@ export function CampaignForm({
           </Select>
         </Field>
         <Field label="Start date">
-          <Input name="start_date" type="date" />
+          <Input
+            name="start_date"
+            type="date"
+            defaultValue={campaign?.start_date ?? ""}
+          />
         </Field>
         <Field label="End date">
-          <Input name="end_date" type="date" />
+          <Input
+            name="end_date"
+            type="date"
+            defaultValue={campaign?.end_date ?? ""}
+          />
         </Field>
       </div>
       <Field label="Notes">
-        <Textarea name="notes" placeholder="Campaign learnings…" />
+        <Textarea
+          name="notes"
+          placeholder="Campaign learnings…"
+          defaultValue={campaign?.notes ?? ""}
+        />
       </Field>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -110,7 +134,7 @@ export function CampaignForm({
           Cancel
         </Button>
         <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Create campaign"}
+          {saving ? "Saving…" : isEditing ? "Update campaign" : "Create campaign"}
         </Button>
       </div>
     </form>
@@ -142,15 +166,4 @@ function emptyToNull(v: FormDataEntryValue | null): string | null {
   return s === "" ? null : s;
 }
 
-// Multiply the entered amount by the selected unit (₹ / K / L / Cr).
-function computeBudget(
-  amount: FormDataEntryValue | null,
-  unit: FormDataEntryValue | null,
-): string | null {
-  const a = amount ? String(amount).trim() : "";
-  if (a === "") return null;
-  const n = Number(a);
-  if (Number.isNaN(n)) return null;
-  const mult = Number(unit) || 1;
-  return String(Math.round(n * mult * 100) / 100);
-}
+
