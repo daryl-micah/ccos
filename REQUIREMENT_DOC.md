@@ -1108,6 +1108,30 @@ Running log of scope decisions made during development.
   `bg-orange` utilities). The app stays light: faint sky-white background,
   pale-sky sidebar; Navy carries the dark primary buttons and text.
 
+* **Deliverable auto-completes on linked post (2026-06-20)** — When a live
+  post is created/updated/synced with a `deliverable_id`, the deliverable
+  flips `pending → posted` and inherits the post's date as `posted_date`
+  (a `completed` deliverable is never downgraded). Implemented in the posts
+  route via `_mark_deliverable_posted`.
+
+* **Creator-table KPIs roll up post metrics (2026-06-20)** — The campaign
+  creators table now aggregates post-scoped metrics (counts summed,
+  rates preferring a CI-level value else averaged), so a synced reel's
+  views/ER show without a manual recompute. Also fixed the derived-metric
+  engine to fall back to the influencer's latest `followers` snapshot when
+  computing CI-level `engagement_rate` (followers are influencer-scoped, so
+  the engine previously found none and skipped ER).
+
+* **Engagement rates fold in manual shares (2026-06-20)** — Instagram's API
+  omits shares, so total engagement is `likes + comments + shares` and **both**
+  rates use it: `engagement_rate = engagement / followers × 100` and
+  `engagement_rate_reach = engagement / views × 100`. Recomputed whenever a
+  post's shares/likes/comments/views change (manual entry or IG sync), owned
+  centrally by `metric_engine.recompute_post_engagement` as a single
+  `source=calculated` row per rate per post; a manually-entered rate override
+  always wins. The CI-level engine (`compute_derived`) likewise adds
+  `avg_shares` to its `engagement_rate` numerator for consistency.
+
 ---
 
 # Development Workflow with Codex

@@ -6,12 +6,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.crud import CRUD
-from app.models import Post
+from app.models import Deliverable, Post
+from app.models.enums import DeliverableStatus
 from app.schemas.post import PostCreate, PostMetricsResult, PostOut, PostUpdate
-from app.services import instagram
+from app.services import instagram, metric_engine
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 crud = CRUD(Post)
+deliverable_crud = CRUD(Deliverable)
+
+
+async def _mark_deliverable_posted(db: AsyncSession, post: Post) -> None:
+    """A linked live post fulfils its deliverable: flip pending → posted."""
+    if post.deliverable_id is None:
+        return
+    deliverable = await deliverable_crud.get(db, post.deliverable_id)
+    if deliverable is None:
+        return
+    if deliverable.status == DeliverableStatus.PENDING:
+        deliverable.status = DeliverableStatus.POSTED
+    if deliverable.posted_date is None and post.posted_at is not None:
+        deliverable.posted_date = post.posted_at.date()
+    await db.flush()
 
 
 @router.post("/{post_id}/sync-metrics", response_model=PostMetricsResult)
@@ -33,24 +49,29 @@ async def sync_post_metrics(post_id: uuid.UUID, db: AsyncSession = Depends(get_d
     except instagram.InstagramError as exc:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
 
-    rows, er_followers, er_reach, followers = await instagram.store_post_metrics(
-        db, post, stats
-    )
+    rows, followers = await instagram.store_post_metrics(db, post, stats)
     # Use Instagram's real publish time instead of manual entry.
     if stats.posted_at is not None:
         post.posted_at = stats.posted_at
         await db.flush()
+    await _mark_deliverable_posted(db, post)
+
+    # Derive both engagement rates separately so any manually-entered shares
+    # are folded in (Instagram's API omits shares).
+    er = await metric_engine.recompute_post_engagement(db, post.id)
+    er_followers = er.get("engagement_rate")
+    er_reach = er.get("engagement_rate_reach")
 
     return PostMetricsResult(
         likes=stats.likes,
         comments=stats.comments,
         views=stats.views,
-        engagement_rate=er_followers,
-        engagement_rate_reach=er_reach,
+        engagement_rate=float(er_followers.metric_value) if er_followers else None,
+        engagement_rate_reach=float(er_reach.metric_value) if er_reach else None,
         followers=int(followers) if followers else None,
         posted_at=post.posted_at,
         shares_available=False,
-        metrics=rows,
+        metrics=rows + list(er.values()),
     )
 
 
@@ -75,7 +96,9 @@ async def list_posts(
 
 @router.post("", response_model=PostOut, status_code=status.HTTP_201_CREATED)
 async def create_post(data: PostCreate, db: AsyncSession = Depends(get_db)):
-    return await crud.create(db, data)
+    post = await crud.create(db, data)
+    await _mark_deliverable_posted(db, post)
+    return post
 
 
 @router.get("/{post_id}", response_model=PostOut)
@@ -93,7 +116,9 @@ async def update_post(
     obj = await crud.get(db, post_id)
     if obj is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Post not found")
-    return await crud.update(db, obj, data)
+    updated = await crud.update(db, obj, data)
+    await _mark_deliverable_posted(db, updated)
+    return updated
 
 
 @router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)

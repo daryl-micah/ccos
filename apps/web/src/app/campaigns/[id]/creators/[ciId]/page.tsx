@@ -144,10 +144,19 @@ export default function CreatorDetailPage({
     setPostSyncError(null);
     try {
       const res = await api.posts.syncMetrics(postId);
-      // Replace this post's Instagram metrics; manual entries stay.
+      // Replace this post's Instagram metrics (and the recomputed engagement
+      // rates it returns); manual entries stay.
+      const supersededByName = new Set([
+        "engagement_rate",
+        "engagement_rate_reach",
+      ]);
       setMetrics((prev) => [
         ...prev.filter(
-          (m) => !(m.post_id === postId && m.source === "instagram"),
+          (m) =>
+            !(
+              m.post_id === postId &&
+              (m.source === "instagram" || supersededByName.has(m.metric_name))
+            ),
         ),
         ...res.metrics,
       ]);
@@ -448,7 +457,16 @@ export default function CreatorDetailPage({
           <PostMetricForm
             campaignInfluencerId={ciId}
             postId={metricPost.id}
-            onAdded={(m) => setMetrics((prev) => [...prev, m])}
+            onAdded={async () => {
+              // Refetch so the server-recomputed reach-ER (which folds in
+              // manually-entered shares) is reflected, not just the new row.
+              setMetrics(
+                await api.metrics.list({
+                  campaign_influencer_id: ciId,
+                  limit: 500,
+                }),
+              );
+            }}
           />
         ) : null}
       </Modal>

@@ -361,28 +361,19 @@ async def _latest_followers(db: AsyncSession, influencer_id) -> float | None:
 
 async def store_post_metrics(
     db: AsyncSession, post: Post, stats: PostStats
-) -> tuple[list[Metric], float | None, float | None, float | None]:
-    """Store post-scoped metrics; returns (rows, er_followers, er_reach, followers).
+) -> tuple[list[Metric], float | None]:
+    """Store post-scoped raw metrics; returns (rows, followers).
 
-    - engagement_rate       = (likes + comments) / followers * 100
-    - engagement_rate_reach = (likes + comments) / views * 100  (video/reel)
+    Stores likes, comments and views. Both engagement rates are derived
+    separately (``metric_engine.recompute_post_engagement``) so they fold in
+    manually-entered shares, which Instagram's API omits.
 
-    Uses the influencer's most recent followers snapshot. Replaces any prior
-    Instagram-sourced metrics for this post (manual entries are kept).
+    Looks up the influencer's most recent followers snapshot (returned for the
+    response). Replaces any prior Instagram-sourced metrics for this post
+    (idempotent re-sync); manual entries always win and are left untouched.
     """
     ci = await db.get(CampaignInfluencer, post.campaign_influencer_id)
     followers = await _latest_followers(db, ci.influencer_id) if ci else None
-
-    engagement_rate = (
-        round((stats.likes + stats.comments) / followers * 100, 4)
-        if followers
-        else None
-    )
-    engagement_rate_reach = (
-        round((stats.likes + stats.comments) / stats.views * 100, 4)
-        if stats.views
-        else None
-    )
 
     values: dict[str, float] = {
         "likes": float(stats.likes),
@@ -390,10 +381,6 @@ async def store_post_metrics(
     }
     if stats.views is not None:
         values["views"] = float(stats.views)
-    if engagement_rate is not None:
-        values["engagement_rate"] = engagement_rate
-    if engagement_rate_reach is not None:
-        values["engagement_rate_reach"] = engagement_rate_reach
 
     # Replace previous Instagram-sourced metrics for this post (idempotent
     # re-sync); manual entries always win and are left untouched.
@@ -421,4 +408,4 @@ async def store_post_metrics(
     await db.flush()
     for row in rows:
         await db.refresh(row)
-    return rows, engagement_rate, engagement_rate_reach, followers
+    return rows, followers

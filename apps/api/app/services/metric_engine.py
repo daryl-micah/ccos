@@ -6,7 +6,7 @@ non-calculated metric with the same name already exists for the
 campaign-influencer, the engine leaves it alone.
 
 Formulas:
-    engagement_rate = (avg likes + avg comments) / followers * 100
+    engagement_rate = (avg likes + avg comments + avg shares) / followers * 100
     cpv             = cost / views
     cpm             = cost * 1000 / impressions
     cpa             = cost / acquisitions
@@ -17,16 +17,20 @@ import uuid
 from collections import defaultdict
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import CampaignInfluencer, Metric
+from app.models import CampaignInfluencer, Metric, Post
 from app.models.enums import MetricSource
 
 DERIVED_NAMES = ["engagement_rate", "cpv", "cpm", "cpa", "roas"]
 
 # Metrics that count as conversions for CPA.
 ACQUISITION_NAMES = ["installs", "leads", "bookings", "purchases", "acquisitions"]
+
+# A post's total engagement. Instagram's API omits shares, so the user enters
+# them manually; reach-ER folds them in once they're present.
+POST_ENGAGEMENT_COMPONENTS = ("likes", "comments", "shares")
 
 
 def _mean(values: list[float]) -> float | None:
@@ -39,6 +43,7 @@ def compute_derived(
     followers: float | None,
     avg_likes: float | None,
     avg_comments: float | None,
+    avg_shares: float | None,
     views: float | None,
     impressions: float | None,
     acquisitions: float | None,
@@ -47,9 +52,14 @@ def compute_derived(
     """Return derived metrics that have sufficient, non-zero inputs."""
     out: dict[str, float] = {}
 
-    if followers and (avg_likes is not None or avg_comments is not None):
+    if followers and (
+        avg_likes is not None or avg_comments is not None or avg_shares is not None
+    ):
         out["engagement_rate"] = round(
-            ((avg_likes or 0) + (avg_comments or 0)) / followers * 100, 4
+            ((avg_likes or 0) + (avg_comments or 0) + (avg_shares or 0))
+            / followers
+            * 100,
+            4,
         )
     if cost is not None and views:
         out["cpv"] = round(cost / views, 4)
@@ -61,6 +71,109 @@ def compute_derived(
         out["roas"] = round(revenue / cost, 4)
 
     return out
+
+
+async def recompute_post_engagement(
+    db: AsyncSession, post_id: uuid.UUID
+) -> dict[str, Metric]:
+    """Recompute a post's engagement rates, folding in manual shares.
+
+        engagement            = likes + comments + shares
+        engagement_rate       = engagement / followers * 100
+        engagement_rate_reach = engagement / views     * 100
+
+    Instagram's API omits shares, so the user enters them manually; both rates
+    fold them in once present. Each rate is kept as a single
+    ``source=calculated`` row per post (a manual override of that rate always
+    wins). Returns the authoritative rate rows keyed by name; a rate is absent
+    when its denominator (followers / views) is unavailable.
+    """
+    rows = list(
+        await db.scalars(
+            select(Metric).where(
+                Metric.post_id == post_id,
+                Metric.deleted_at.is_(None),
+            )
+        )
+    )
+
+    def latest(name: str) -> float | None:
+        candidates = [m for m in rows if m.metric_name == name]
+        if not candidates:
+            return None
+        manual = [m for m in candidates if m.source == MetricSource.MANUAL]
+        newest = max(manual or candidates, key=lambda m: m.captured_at)
+        return float(newest.metric_value)
+
+    engagement = sum((latest(n) or 0) for n in POST_ENGAGEMENT_COMPONENTS)
+
+    post = await db.get(Post, post_id)
+    ci = (
+        await db.get(CampaignInfluencer, post.campaign_influencer_id)
+        if post
+        else None
+    )
+    followers = (
+        await _latest_influencer_followers(db, ci.influencer_id) if ci else None
+    )
+
+    # Each rate and the denominator it divides total engagement by.
+    denominators = {
+        "engagement_rate": followers,
+        "engagement_rate_reach": latest("views"),
+    }
+
+    result: dict[str, Metric] = {}
+    for name, denom in denominators.items():
+        existing = [m for m in rows if m.metric_name == name]
+        manual_override = next(
+            (m for m in existing if m.source == MetricSource.MANUAL), None
+        )
+        if manual_override is not None:
+            # Manual entry always wins; clear any stale derived row beside it.
+            for m in existing:
+                if m is not manual_override:
+                    m.deleted_at = func.now()
+            result[name] = manual_override
+            continue
+
+        # Supersede the prior derived/collected row (single source of truth).
+        for m in existing:
+            m.deleted_at = func.now()
+        if not denom:
+            continue  # no followers / views to divide by
+
+        row = Metric(
+            campaign_influencer_id=post.campaign_influencer_id if post else None,
+            post_id=post_id,
+            metric_name=name,
+            metric_value=Decimal(str(round(engagement / denom * 100, 4))),
+            source=MetricSource.CALCULATED,
+        )
+        db.add(row)
+        result[name] = row
+
+    await db.flush()
+    for row in result.values():
+        await db.refresh(row)
+    return result
+
+
+async def _latest_influencer_followers(
+    db: AsyncSession, influencer_id: uuid.UUID
+) -> float | None:
+    """Most recent follower count recorded against the influencer profile."""
+    row = await db.scalar(
+        select(Metric)
+        .where(
+            Metric.influencer_id == influencer_id,
+            Metric.metric_name == "followers",
+            Metric.deleted_at.is_(None),
+        )
+        .order_by(Metric.captured_at.desc())
+        .limit(1)
+    )
+    return float(row.metric_value) if row is not None else None
 
 
 async def recompute_for_ci(
@@ -100,11 +213,18 @@ async def recompute_for_ci(
 
     acquisitions = sum((total(n) or 0) for n in ACQUISITION_NAMES) or None
 
+    # Followers live on the influencer (campaign-agnostic), so they rarely
+    # appear among this CI's metrics. Fall back to the influencer's latest.
+    followers = latest("followers")
+    if followers is None:
+        followers = await _latest_influencer_followers(db, ci.influencer_id)
+
     computed = compute_derived(
         cost=float(ci.cost) if ci.cost is not None else None,
-        followers=latest("followers"),
+        followers=followers,
         avg_likes=_mean(values("likes")),
         avg_comments=_mean(values("comments")),
+        avg_shares=_mean(values("shares")),
         views=total("views"),
         impressions=total("impressions"),
         acquisitions=acquisitions,
