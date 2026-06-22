@@ -1096,18 +1096,17 @@ Running log of scope decisions made during development.
 * **Architecture decision** — Keep FastAPI as the core backend (Instagram
   via Instaloader and Celery are Python-only). A Next.js BFF + Better Auth
   was considered and deferred; revisit when adding auth.
-* **Brand palette revised (2026-06-19)** — soft greens with a coral accent
-  (replaces the earlier warm neutrals of Almond Silk / Powder Petal /
-  Soft Linen):
-  * Lime `#d4e09b` — secondary surfaces, badges, hover tints
-  * Cream `#f6f4d2` — sidebar background
-  * Sage `#cbdfbd` — muted surfaces (`#b9d0a3` deeper for borders/inputs)
-  * Coral `#f19c79` — focus rings, chart bars, pop accent
+* **Brand palette revised (2026-06-19)** — blues with warm accents
+  (replaces the earlier warm neutrals, then a brief soft-green trial):
+  * Sky `#8ecae6` — secondary surfaces, badges, active nav pill
+  * Teal `#219ebc` — focus rings, chart series, accent
+  * Navy `#023047` — primary buttons, body text/foreground
+  * Amber `#ffb703` / Orange `#fb8500` — warm pop accents
 
   Wired into the Tailwind v4 design tokens in `apps/web/src/app/globals.css`
-  (also exposed as `bg-lime` / `bg-cream` / `bg-sage` / `bg-coral`
-  utilities). Primary actions use a deep green (`#3d5232`) for contrast since
-  the brand colors are light.
+  (also exposed as `bg-sky` / `bg-teal` / `bg-navy` / `bg-amber` /
+  `bg-orange` utilities). The app stays light: faint sky-white background,
+  pale-sky sidebar; Navy carries the dark primary buttons and text.
 
 ---
 

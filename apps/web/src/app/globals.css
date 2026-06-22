@@ -2,9 +2,11 @@
 
 @theme inline {
   /* CCOS brand palette — available as bg-/text-/border- utilities. */
-  --color-almond-silk: #d0b8ac;
-  --color-powder-petal: #f3d8c7;
-  --color-soft-linen: #efe5dc;
+  --color-sky: #8ecae6;
+  --color-teal: #219ebc;
+  --color-navy: #023047;
+  --color-amber: #ffb703;
+  --color-orange: #fb8500;
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -34,29 +36,31 @@
   --radius: 0.625rem;
 
   /* Brand palette */
-  --almond-silk: #d0b8ac;
-  --powder-petal: #f3d8c7;
-  --soft-linen: #efe5dc;
+  --sky: #8ecae6;
+  --teal: #219ebc;
+  --navy: #023047;
+  --amber: #ffb703;
+  --orange: #fb8500;
 
   /* Semantic tokens mapped onto the brand palette.
-     Main content sits on warm white; the sidebar uses Soft Linen. */
-  --background: #fffaf6; /* warm white — main content area */
-  --foreground: #2b211b; /* warm near-black for readable text */
-  --card: #ffffff; /* pure white, lifts above the warm-white background */
-  --card-foreground: #2b211b;
-  --muted: #f3d8c7; /* Powder Petal */
-  --muted-foreground: #6b5d54;
-  --border: #d0b8ac; /* Almond Silk */
-  --input: #d0b8ac;
-  --ring: #b89a8a; /* deeper almond for visible focus */
-  --primary: #2b211b; /* warm near-black; keeps button contrast */
-  --primary-foreground: #faf3ec;
-  --secondary: #f3d8c7; /* Powder Petal */
-  --secondary-foreground: #2b211b;
-  --accent: #f7e7da; /* lighter petal for hover states */
-  --accent-foreground: #2b211b;
+     Main content sits on a near-white tint; the sidebar uses pale sky (muted). */
+  --background: #f4fafc; /* faint sky white — main content area */
+  --foreground: #023047; /* Navy for readable text */
+  --card: #ffffff; /* pure white, lifts above the tinted background */
+  --card-foreground: #023047;
+  --muted: #e1eff6; /* pale sky — subtle surfaces + sidebar */
+  --muted-foreground: #486b7a;
+  --border: #a9d6e9; /* light sky-blue for visible edges */
+  --input: #a9d6e9;
+  --ring: #219ebc; /* Teal for visible focus */
+  --primary: #023047; /* Navy; strong button contrast */
+  --primary-foreground: #f4fafc;
+  --secondary: #8ecae6; /* Sky */
+  --secondary-foreground: #023047;
+  --accent: #d6eef7; /* lighter sky for hover states */
+  --accent-foreground: #023047;
   --destructive: #c0392b;
-  --destructive-foreground: #faf3ec;
+  --destructive-foreground: #f4fafc;
 }
 
 * {
