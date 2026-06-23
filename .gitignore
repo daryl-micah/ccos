@@ -35,5 +35,8 @@ venv/
 postgres-data/
 redis-data/
 
+# Test spreadsheets — never commit (local fixtures only)
+*.xlsx
+
 # Instagram session store (Phase 3) — never commit sessions
 instagram_sessions/

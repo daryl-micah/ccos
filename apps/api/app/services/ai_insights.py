@@ -1,4 +1,4 @@
-"""AI insights layer (REQUIREMENT_DOC Phase 8) — powered by Groq.
+"""AI insights layer (PRODUCT.md Phase 8) — powered by Groq.
 
 Feeds the cross-campaign analytics into a Groq LLM and asks for
 natural-language insights + recommendations. Disabled (clear error) when

@@ -33,7 +33,7 @@ class TimestampMixin:
 
 
 class SoftDeleteMixin:
-    """Soft delete — never lose campaign history (see REQUIREMENT_DOC)."""
+    """Soft delete — never lose campaign history (see PRODUCT.md)."""
 
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),

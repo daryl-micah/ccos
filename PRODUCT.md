@@ -1,5 +1,10 @@
 # Creator Campaign Operating System (CCOS)
 
+> **The living product document for CCOS.** It captures both *what we're
+> building* — vision, scope, entity model, and the phased roadmap — and
+> *what we've decided* along the way, recorded in the [Decisions Log](#decisions-log)
+> near the bottom. Keep both halves current as scope and design choices are made.
+
 ## Project Vision
 
 Build a campaign-centric creator management platform that replaces spreadsheets used by marketing teams.

@@ -1,4 +1,4 @@
-"""Celery application (REQUIREMENT_DOC Phase 5 — background jobs).
+"""Celery application (PRODUCT.md Phase 5 — background jobs).
 
 Runs collectors and snapshots asynchronously so user requests never block.
 Start a worker with:  uv run celery -A app.worker.celery_app worker --beat

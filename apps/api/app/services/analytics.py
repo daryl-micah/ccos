@@ -1,4 +1,4 @@
-"""Cross-campaign analytics (REQUIREMENT_DOC Phase 6).
+"""Cross-campaign analytics (PRODUCT.md Phase 6).
 
 Answers: which creators / cities / categories perform best, lowest CPV,
 highest ROAS, best campaign, and repeat-collaboration candidates.

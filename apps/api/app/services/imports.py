@@ -1,7 +1,7 @@
 """Parse uploaded CSV / Excel files into influencer rows.
 
 Lets teams bulk-load their existing creator spreadsheet into CCOS,
-removing the migration barrier (REQUIREMENT_DOC integration phase 1).
+removing the migration barrier (PRODUCT.md integration phase 1).
 """
 
 import csv

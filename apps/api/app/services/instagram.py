@@ -1,4 +1,4 @@
-"""Instagram collector (REQUIREMENT_DOC Phase 3).
+"""Instagram collector (PRODUCT.md Phase 3).
 
 Uses instagrapi (private API wrapper) for reliable authenticated access —
 Instagram blocks anonymous scraping, so a login is required. A single shared

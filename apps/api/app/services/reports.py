@@ -2,7 +2,7 @@
 
 Produces a readable workbook mapped to the columns marketing teams
 already use, so adopting CCOS doesn't force abandoning their spreadsheet
-workflow (see REQUIREMENT_DOC "Reports").
+workflow (see PRODUCT.md "Reports").
 """
 
 import io

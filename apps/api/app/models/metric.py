@@ -10,7 +10,7 @@ from app.models.enums import MetricSource
 
 
 class Metric(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
-    """Generic metric record (see REQUIREMENT_DOC "Metric System").
+    """Generic metric record (see PRODUCT.md "Metric System").
 
     Scoped to one of: a campaign-influencer (campaign context), a specific
     live ``post``, or an ``influencer`` directly (e.g. Instagram profile

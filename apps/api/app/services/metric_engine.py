@@ -1,4 +1,4 @@
-"""Derived-metric engine (REQUIREMENT_DOC Phase 2).
+"""Derived-metric engine (PRODUCT.md Phase 2).
 
 Computes KPIs from manually-entered or collected metrics and stores them
 back as ``source = calculated`` rows. Manual overrides always win: if a
