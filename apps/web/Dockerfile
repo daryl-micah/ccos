@@ -12,18 +12,18 @@ RUN corepack enable && corepack prepare pnpm@11.1.1 --activate
 
 WORKDIR /app
 
-# Install dependencies first (cached layer). Generous fetch timeout/retries
-# for large native binaries (e.g. Next SWC) on slow networks.
-COPY package.json ./
-RUN pnpm install --no-frozen-lockfile \
-    --config.fetch-timeout=600000 \
-    --config.fetch-retries=5
+# Install dependencies first (cached layer).
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json .npmrc ./
+COPY apps/web/package.json ./apps/web/package.json
+RUN pnpm install --frozen-lockfile
 
 # Build. Call the binary directly so pnpm's pre-run deps check can't abort on
 # the native-build approval gate.
-COPY . .
-RUN ./node_modules/.bin/next build
+COPY apps/web/ ./apps/web/
+RUN cd apps/web && ../../node_modules/.bin/next build
 
 EXPOSE 3000
+
+WORKDIR /app/apps/web
 ENV PORT=3000 HOSTNAME=0.0.0.0
-CMD ["./node_modules/.bin/next", "start", "-H", "0.0.0.0", "-p", "3000"]
+CMD ["../../node_modules/.bin/next", "start", "-H", "0.0.0.0", "-p", "3000"]

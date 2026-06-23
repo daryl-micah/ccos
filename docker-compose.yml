@@ -53,7 +53,8 @@ services:
 
   web:
     build:
-      context: ./apps/web
+      context: .
+      dockerfile: apps/web/Dockerfile
       args:
         # Baked into client JS; must be the API URL as seen from the browser.
         NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
