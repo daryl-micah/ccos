@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BarChart3, LayoutDashboard, Megaphone, Users } from "lucide-react";
@@ -18,8 +19,15 @@ export function Sidebar() {
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r bg-muted">
       <div className="flex h-16 items-center border-b px-6">
-        <Link href="/" className="font-semibold tracking-tight">
-          CCOS
+        <Link href="/" aria-label="CCOS home">
+          <Image
+            src="/logo-wordmark.png"
+            alt="CCOS"
+            width={590}
+            height={188}
+            priority
+            className="h-7 w-auto"
+          />
         </Link>
       </div>
       <nav className="flex flex-col gap-1 p-3">
