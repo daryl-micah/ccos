@@ -112,7 +112,10 @@ async def build_campaign_report(
     influencers = {
         i.id: i
         for i in await db.scalars(
-            select(Influencer).where(Influencer.id.in_(inf_ids or [uuid.uuid4()]))
+            select(Influencer).where(
+                Influencer.id.in_(inf_ids or [uuid.uuid4()]),
+                Influencer.deleted_at.is_(None),
+            )
         )
     }
     deliverables = list(
@@ -365,7 +368,10 @@ async def _load_bundle(db: AsyncSession, campaign_id: uuid.UUID) -> _Bundle | No
     influencers = {
         i.id: i
         for i in await db.scalars(
-            select(Influencer).where(Influencer.id.in_(inf_ids or [uuid.uuid4()]))
+            select(Influencer).where(
+                Influencer.id.in_(inf_ids or [uuid.uuid4()]),
+                Influencer.deleted_at.is_(None),
+            )
         )
     }
     deliverables = await db.scalars(
@@ -404,7 +410,10 @@ async def _load_bundle(db: AsyncSession, campaign_id: uuid.UUID) -> _Bundle | No
     agencies = {
         a.id: a
         for a in await db.scalars(
-            select(Agency).where(Agency.id.in_(agency_ids or [uuid.uuid4()]))
+            select(Agency).where(
+                Agency.id.in_(agency_ids or [uuid.uuid4()]),
+                Agency.deleted_at.is_(None),
+            )
         )
     }
 
