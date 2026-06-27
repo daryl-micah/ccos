@@ -82,17 +82,18 @@ def compute_profile_metrics(profile: IgProfile) -> dict[str, float]:
     n = len(posts)
     avg_likes = sum(p.likes for p in posts) / n if n else 0.0
     avg_comments = sum(p.comments for p in posts) / n if n else 0.0
+    avg_shares = sum(p.shares or 0 for p in posts) / n if n else 0.0
 
     engagement_rate = (
-        round((avg_likes + avg_comments) / profile.followers * 100, 4)
+        round((avg_likes + avg_comments + avg_shares) / profile.followers * 100, 4)
         if profile.followers
         else 0.0
     )
 
-    # ER by reach: mean of (likes + comments) / views over posts that have a
+    # ER by reach: mean of (likes + comments + shares) / views over posts that have a
     # view count (reels/videos). Matches how tools like HypeAuditor report ER.
     reach_ers = [
-        (p.likes + p.comments) / p.views * 100 for p in posts if p.views
+        (p.likes + p.comments + (p.shares or 0)) / p.views * 100 for p in posts if p.views
     ]
     engagement_rate_reach = (
         round(sum(reach_ers) / len(reach_ers), 4) if reach_ers else None
