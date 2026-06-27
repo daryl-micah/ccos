@@ -26,7 +26,7 @@ export function CampaignForm({
   const [error, setError] = React.useState<string | null>(null);
   const isEditing = !!campaign;
 
-  async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
     setError(null);
@@ -35,7 +35,12 @@ export function CampaignForm({
       name: String(form.get("name")).trim(),
       brand: emptyToNull(form.get("brand")),
       objective: emptyToNull(form.get("objective")),
-      budget: emptyToNull(form.get("budget")),
+      budget: (() => {
+        const val = emptyToNull(form.get("budget"));
+        if (!val) return null;
+        const num = parseFloat(val.replace(/[^0-9.-]/g, ""));
+        return isNaN(num) ? null : String(num);
+      })(),
       status: form.get("status") as CampaignStatus,
       start_date: emptyToNull(form.get("start_date")),
       end_date: emptyToNull(form.get("end_date")),

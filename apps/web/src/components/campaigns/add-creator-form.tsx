@@ -55,7 +55,12 @@ export function AddCreatorForm({
         campaign_id: campaignId,
         influencer_id: influencerId,
         agency_id: emptyToNull(form.get("agency_id")),
-        cost: cost === "" ? null : cost,
+        cost: (() => {
+          const val = cost.replace(/[^0-9.-]/g, "");
+          if (val === "") return null;
+          const num = parseFloat(val);
+          return isNaN(num) ? null : String(num);
+        })(),
         status: form.get("status") as CampaignInfluencerStatus,
         remarks: emptyToNull(form.get("remarks")),
       });
