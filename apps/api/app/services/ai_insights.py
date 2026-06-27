@@ -66,7 +66,7 @@ async def generate_insights(db: AsyncSession) -> dict:
 
     from groq import AsyncGroq
 
-    client = AsyncGroq(api_key=settings.groq_api_key)
+    client = AsyncGroq(api_key=settings.groq_api_key, timeout=30.0)
     completion = await client.chat.completions.create(
         model=settings.groq_model,
         temperature=0.4,
