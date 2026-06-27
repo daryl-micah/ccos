@@ -61,13 +61,13 @@ def compute_derived(
             * 100,
             4,
         )
-    if cost is not None and views:
+    if cost is not None and views is not None and views > 0:
         out["cpv"] = round(cost / views, 4)
-    if cost is not None and impressions:
+    if cost is not None and impressions is not None and impressions > 0:
         out["cpm"] = round(cost * 1000 / impressions, 4)
-    if cost is not None and acquisitions:
+    if cost is not None and acquisitions is not None and acquisitions > 0:
         out["cpa"] = round(cost / acquisitions, 4)
-    if cost and revenue is not None:
+    if cost is not None and cost > 0 and revenue is not None:
         out["roas"] = round(revenue / cost, 4)
 
     return out
@@ -208,7 +208,8 @@ async def recompute_for_ci(
         rows = by_name.get(name, [])
         if not rows:
             return None
-        newest = max(rows, key=lambda m: m.captured_at)
+        manual = [m for m in rows if m.source == MetricSource.MANUAL]
+        newest = max(manual or rows, key=lambda m: m.captured_at)
         return float(newest.metric_value)
 
     acquisitions = sum((total(n) or 0) for n in ACQUISITION_NAMES) or None
