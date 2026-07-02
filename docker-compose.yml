@@ -1,14 +1,13 @@
 services:
   postgres:
     image: postgres:16
-    container_name: ccos-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ccos
       POSTGRES_PASSWORD: ccos
       POSTGRES_DB: ccos
     ports:
-      # Host 5433 -> container 5432 (host 5432 is often already in use)
+      # Keep exposed for DBeaver
       - "5433:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -20,10 +19,7 @@ services:
 
   redis:
     image: redis:7
-    container_name: ccos-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -35,16 +31,14 @@ services:
   api:
     build:
       context: ./apps/api
-    container_name: ccos-api
     restart: unless-stopped
     environment:
-      # In-container service names (not host ports).
       DATABASE_URL: postgresql+asyncpg://ccos:ccos@postgres:5432/ccos
       REDIS_URL: redis://redis:6379/0
-      CORS_ORIGINS: http://localhost:3000
+      CORS_ORIGINS: http://n4ttw0pcsa16go8hgkqy5qgz.168.144.81.111.sslip.io
       ENV: production
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -56,20 +50,16 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        # Baked into client JS; must be the API URL as seen from the browser.
-        NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
-    container_name: ccos-web
+        NEXT_PUBLIC_API_URL: http://n4ttw0pcsa16go8hgkqy5qgz.168.144.81.111.sslip.io
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     depends_on:
       - api
 
-  # Phase 5 background jobs. Reuse the api image; just change the command.
   worker:
     build:
       context: ./apps/api
-    container_name: ccos-worker
     restart: unless-stopped
     command: uv run celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
     environment:
@@ -84,7 +74,6 @@ services:
   beat:
     build:
       context: ./apps/api
-    container_name: ccos-beat
     restart: unless-stopped
     command: uv run celery -A app.worker.celery_app beat --loglevel=info
     environment:
