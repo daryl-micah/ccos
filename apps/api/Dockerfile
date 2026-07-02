@@ -3,8 +3,12 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 WORKDIR /app
 
+# UV_NO_SYNC: the venv is fully built below, so `uv run` at runtime uses it
+# as-is instead of re-syncing (which would try to pull dev deps over the
+# network and fail offline).
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
+    UV_NO_SYNC=1 \
     PYTHONUNBUFFERED=1
 
 # Install dependencies first (cached layer).

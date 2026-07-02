@@ -71,7 +71,7 @@ services:
       context: ./apps/api
     container_name: ccos-worker
     restart: unless-stopped
-    command: celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
+    command: uv run celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
     environment:
       DATABASE_URL: postgresql+asyncpg://ccos:ccos@postgres:5432/ccos
       REDIS_URL: redis://redis:6379/0
@@ -86,7 +86,7 @@ services:
       context: ./apps/api
     container_name: ccos-beat
     restart: unless-stopped
-    command: celery -A app.worker.celery_app beat --loglevel=info
+    command: uv run celery -A app.worker.celery_app beat --loglevel=info
     environment:
       DATABASE_URL: postgresql+asyncpg://ccos:ccos@postgres:5432/ccos
       REDIS_URL: redis://redis:6379/0
