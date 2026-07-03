@@ -35,7 +35,9 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://ccos:ccos@postgres:5432/ccos
       REDIS_URL: redis://redis:6379/0
-      CORS_ORIGINS: http://n4ttw0pcsa16go8hgkqy5qgz.168.144.81.111.sslip.io
+      # Requests now go same-origin through the Next BFF, so CORS is effectively
+      # unused; kept correct as belt-and-suspenders.
+      CORS_ORIGINS: https://ccos.darylmicah.me
       ENV: production
     expose:
       - "8000"
@@ -50,12 +52,30 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://n4ttw0pcsa16go8hgkqy5qgz.168.144.81.111.sslip.io
+        # Browser hits the Next BFF same-origin (relative path).
+        NEXT_PUBLIC_API_URL: /api/v1
     restart: unless-stopped
+    environment:
+      # Server-side rewrite target: Next proxies /api/v1/* to the API over the
+      # internal Docker network. The API is never published to the host.
+      API_INTERNAL_URL: http://api:8000
     expose:
       - "3000"
     depends_on:
       - api
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
 
   worker:
     build:
@@ -86,3 +106,5 @@ services:
 volumes:
   postgres-data:
   redis-data:
+  caddy-data:
+  caddy-config:

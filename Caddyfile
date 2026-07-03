@@ -1,0 +1,7 @@
+# Caddy terminates TLS for the domain and routes to the Next server (web:3000).
+# Next serves the UI and proxies /api/v1/* to the API (BFF), so Caddy only needs
+# one upstream. A Let's Encrypt cert is provisioned automatically once DNS points
+# at this droplet and ports 80/443 are reachable.
+ccos.darylmicah.me {
+	reverse_proxy web:3000
+}
