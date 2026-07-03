@@ -16,8 +16,9 @@ import type {
   Trends,
 } from "./types";
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+// Relative by default so browser requests hit the Next BFF (same origin), which
+// proxies /api/v1/* to the FastAPI backend. See apps/web/next.config.ts.
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api/v1";
 
 class ApiError extends Error {
   constructor(

@@ -2,8 +2,9 @@
 FROM node:22-bookworm-slim
 
 # Base URL of the API as seen by the user's BROWSER (NEXT_PUBLIC_* is baked in
-# at build time). Defaults to the host-published API port.
-ARG NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+# at build time). Relative by default: requests go same-origin to the Next BFF,
+# which proxies /api/v1/* to the API (see next.config.ts + API_INTERNAL_URL).
+ARG NEXT_PUBLIC_API_URL=/api/v1
 # Docker build context is the repo root, so pnpm installs the full workspace
 # and `next` is hoisted to /app/node_modules. Let next.config.ts pin the
 # Turbopack root to the monorepo root (do NOT set NEXT_ISOLATED_BUILD here).
