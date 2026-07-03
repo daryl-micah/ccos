@@ -22,7 +22,7 @@ jobs:
           key: ${{ secrets.DROPLET_SSH_KEY }}
           script: |
             set -e
-            cd /opt/ccos_pronto
+            cd ~/ccos
             git pull origin main
             docker compose up -d --build
             docker image prune -f
