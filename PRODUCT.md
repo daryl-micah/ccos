@@ -1014,6 +1014,16 @@ Phased rollout so teams never have to abandon their current workflow.
 
 Running log of scope decisions made during development.
 
+## 2026-07-14
+
+* **Authentication via Clerk** — The web app (`apps/web`) is gated behind
+  Clerk. `proxy.ts` protects every route except `/sign-in` and `/sign-up`;
+  unauthenticated visitors are redirected to sign-in. `ClerkProvider` wraps
+  the app in `layout.tsx`, and a `UserButton` in the sidebar handles account
+  management / sign-out. Linked to Clerk app `app_3GU4vWmTitBcuf1igYlhZebkbRx`
+  (Creator Campaign OS). Development instance only so far — a production
+  instance and its keys still need to be configured for the deploy.
+
 ## 2026-06-16
 
 * **Live post insights** — Users can paste the link of a live post (the
