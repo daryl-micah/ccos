@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.api.routes import (
     agencies,
@@ -14,8 +14,12 @@ from app.api.routes import (
     posts,
     reports,
 )
+from app.core.auth import get_tenant
 
-api_router = APIRouter()
+# Every route below requires a verified Clerk session with an active org.
+# Query results aren't yet filtered by org_id (Phase 4) — this only enforces
+# the "no anonymous / no orgless access" boundary.
+api_router = APIRouter(dependencies=[Depends(get_tenant)])
 api_router.include_router(agencies.router)
 api_router.include_router(campaigns.router)
 api_router.include_router(influencers.router)

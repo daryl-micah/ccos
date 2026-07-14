@@ -29,6 +29,13 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
 
+    # Clerk auth (multi-tenancy rollout, Phase 2). The secret key also
+    # authenticates the JWKS fetch at ``clerk_jwks_url`` — using Clerk's
+    # Backend API JWKS endpoint means we verify tokens without needing to
+    # know the instance's frontend-api/custom domain.
+    clerk_secret_key: str = ""
+    clerk_jwks_url: str = "https://api.clerk.com/v1/jwks"
+
     # Comma-separated string in env (CORS_ORIGINS); use ``cors_origins`` for the list.
     cors_origins_raw: str = Field(
         default="http://localhost:3000", validation_alias="CORS_ORIGINS"
