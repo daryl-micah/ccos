@@ -54,11 +54,21 @@ services:
       args:
         # Browser hits the Next BFF same-origin (relative path).
         NEXT_PUBLIC_API_URL: /api/v1
+        # Clerk NEXT_PUBLIC_* vars are baked in at build time, so they must be
+        # set in the droplet's .env before `docker compose up --build` runs.
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+        NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
+        NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL: /
+        NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL: /
     restart: unless-stopped
     environment:
       # Server-side rewrite target: Next proxies /api/v1/* to the API over the
       # internal Docker network. The API is never published to the host.
       API_INTERNAL_URL: http://api:8000
+      # Server-side Clerk key (middleware, server components). Read at
+      # runtime, not baked into the build.
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
     expose:
       - "3000"
     depends_on:

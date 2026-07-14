@@ -5,10 +5,21 @@ FROM node:22-bookworm-slim
 # at build time). Relative by default: requests go same-origin to the Next BFF,
 # which proxies /api/v1/* to the API (see next.config.ts + API_INTERNAL_URL).
 ARG NEXT_PUBLIC_API_URL=/api/v1
+# Clerk NEXT_PUBLIC_* vars are baked in at build time like the API URL above.
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ARG NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+ARG NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+ARG NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/
+ARG NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/
 # Docker build context is the repo root, so pnpm installs the full workspace
 # and `next` is hoisted to /app/node_modules. Let next.config.ts pin the
 # Turbopack root to the monorepo root (do NOT set NEXT_ISOLATED_BUILD here).
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY \
+    NEXT_PUBLIC_CLERK_SIGN_IN_URL=$NEXT_PUBLIC_CLERK_SIGN_IN_URL \
+    NEXT_PUBLIC_CLERK_SIGN_UP_URL=$NEXT_PUBLIC_CLERK_SIGN_UP_URL \
+    NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=$NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL \
+    NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=$NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL \
     NEXT_TELEMETRY_DISABLED=1
 
 RUN corepack enable && corepack prepare pnpm@11.1.1 --activate
