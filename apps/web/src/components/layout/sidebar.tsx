@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BarChart3, LayoutDashboard, Megaphone, Users } from "lucide-react";
+import { UserButton } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -51,8 +52,8 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div className="mt-auto p-4 text-xs text-muted-foreground">
-        Campaign Operating System
+      <div className="mt-auto flex items-center gap-3 border-t p-4">
+        <UserButton showName />
       </div>
     </aside>
   );
