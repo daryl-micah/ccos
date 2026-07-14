@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import Tenant, get_tenant
 from app.core.database import get_db
 from app.services import ai_insights
 
@@ -32,10 +33,12 @@ async def ai_status():
 
 
 @router.post("/insights", response_model=InsightsResult)
-async def ai_generate_insights(db: AsyncSession = Depends(get_db)):
+async def ai_generate_insights(
+    db: AsyncSession = Depends(get_db), tenant: Tenant = Depends(get_tenant)
+):
     """Generate natural-language insights over the campaign analytics."""
     try:
-        return await ai_insights.generate_insights(db)
+        return await ai_insights.generate_insights(db, tenant.org_id)
     except ai_insights.AINotConfiguredError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
     except Exception as exc:  # noqa: BLE001 - surface upstream failures clearly

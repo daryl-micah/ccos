@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import Tenant, get_tenant
 from app.core.database import get_db
 from app.crud import CRUD
 from app.models import Influencer, Metric
@@ -24,9 +25,10 @@ async def influencer_trends(
     influencer_id: uuid.UUID,
     days: int = Query(180, ge=1, le=1095),
     db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
 ):
     """Time series of influencer-scoped metrics (for growth charts, Phase 5)."""
-    inf = await crud.get(db, influencer_id)
+    inf = await crud.get(db, influencer_id, org_id=tenant.org_id)
     if inf is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Influencer not found")
 
@@ -35,6 +37,7 @@ async def influencer_trends(
         select(Metric)
         .where(
             Metric.influencer_id == influencer_id,
+            Metric.org_id == tenant.org_id,
             Metric.deleted_at.is_(None),
             Metric.captured_at >= since,
         )
@@ -53,9 +56,10 @@ async def sync_instagram(
     influencer_id: uuid.UUID,
     max_posts: int = Query(instagram.DEFAULT_MAX_POSTS, ge=1, le=50),
     db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
 ):
     """Collect Instagram profile + recent-post stats and store a snapshot."""
-    inf = await crud.get(db, influencer_id)
+    inf = await crud.get(db, influencer_id, org_id=tenant.org_id)
     if inf is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Influencer not found")
     if not inf.instagram_username:
@@ -106,24 +110,37 @@ async def sync_instagram(
 @router.get("", response_model=list[InfluencerOut])
 async def list_influencers(
     db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
     skip: int = 0,
     limit: int = Query(100, le=500),
     city: str | None = None,
     category: str | None = None,
 ):
     return await crud.list(
-        db, skip=skip, limit=limit, filters={"city": city, "category": category}
+        db,
+        org_id=tenant.org_id,
+        skip=skip,
+        limit=limit,
+        filters={"city": city, "category": category},
     )
 
 
 @router.post("", response_model=InfluencerOut, status_code=status.HTTP_201_CREATED)
-async def create_influencer(data: InfluencerCreate, db: AsyncSession = Depends(get_db)):
-    return await crud.create(db, data)
+async def create_influencer(
+    data: InfluencerCreate,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
+):
+    return await crud.create(db, data, org_id=tenant.org_id)
 
 
 @router.get("/{influencer_id}", response_model=InfluencerOut)
-async def get_influencer(influencer_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    obj = await crud.get(db, influencer_id)
+async def get_influencer(
+    influencer_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
+):
+    obj = await crud.get(db, influencer_id, org_id=tenant.org_id)
     if obj is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Influencer not found")
     return obj
@@ -131,17 +148,24 @@ async def get_influencer(influencer_id: uuid.UUID, db: AsyncSession = Depends(ge
 
 @router.patch("/{influencer_id}", response_model=InfluencerOut)
 async def update_influencer(
-    influencer_id: uuid.UUID, data: InfluencerUpdate, db: AsyncSession = Depends(get_db)
+    influencer_id: uuid.UUID,
+    data: InfluencerUpdate,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
 ):
-    obj = await crud.get(db, influencer_id)
+    obj = await crud.get(db, influencer_id, org_id=tenant.org_id)
     if obj is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Influencer not found")
     return await crud.update(db, obj, data)
 
 
 @router.delete("/{influencer_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_influencer(influencer_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    obj = await crud.get(db, influencer_id)
+async def delete_influencer(
+    influencer_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
+):
+    obj = await crud.get(db, influencer_id, org_id=tenant.org_id)
     if obj is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Influencer not found")
     await crud.remove(db, obj)

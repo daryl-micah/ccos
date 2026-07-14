@@ -74,7 +74,7 @@ def compute_derived(
 
 
 async def recompute_post_engagement(
-    db: AsyncSession, post_id: uuid.UUID
+    db: AsyncSession, post_id: uuid.UUID, org_id: str
 ) -> dict[str, Metric]:
     """Recompute a post's engagement rates, folding in manual shares.
 
@@ -92,6 +92,7 @@ async def recompute_post_engagement(
         await db.scalars(
             select(Metric).where(
                 Metric.post_id == post_id,
+                Metric.org_id == org_id,
                 Metric.deleted_at.is_(None),
             )
         )
@@ -114,7 +115,9 @@ async def recompute_post_engagement(
         else None
     )
     followers = (
-        await _latest_influencer_followers(db, ci.influencer_id) if ci else None
+        await _latest_influencer_followers(db, ci.influencer_id, org_id)
+        if ci
+        else None
     )
 
     # Each rate and the denominator it divides total engagement by.
@@ -149,6 +152,7 @@ async def recompute_post_engagement(
             metric_name=name,
             metric_value=Decimal(str(round(engagement / denom * 100, 4))),
             source=MetricSource.CALCULATED,
+            org_id=org_id,
         )
         db.add(row)
         result[name] = row
@@ -160,13 +164,14 @@ async def recompute_post_engagement(
 
 
 async def _latest_influencer_followers(
-    db: AsyncSession, influencer_id: uuid.UUID
+    db: AsyncSession, influencer_id: uuid.UUID, org_id: str
 ) -> float | None:
     """Most recent follower count recorded against the influencer profile."""
     row = await db.scalar(
         select(Metric)
         .where(
             Metric.influencer_id == influencer_id,
+            Metric.org_id == org_id,
             Metric.metric_name == "followers",
             Metric.deleted_at.is_(None),
         )
@@ -177,7 +182,7 @@ async def _latest_influencer_followers(
 
 
 async def recompute_for_ci(
-    db: AsyncSession, ci: CampaignInfluencer
+    db: AsyncSession, ci: CampaignInfluencer, org_id: str
 ) -> list[Metric]:
     """Recompute derived metrics for one campaign-influencer.
 
@@ -188,6 +193,7 @@ async def recompute_for_ci(
         await db.scalars(
             select(Metric).where(
                 Metric.campaign_influencer_id == ci.id,
+                Metric.org_id == org_id,
                 Metric.deleted_at.is_(None),
             )
         )
@@ -218,7 +224,9 @@ async def recompute_for_ci(
     # appear among this CI's metrics. Fall back to the influencer's latest.
     followers = latest("followers")
     if followers is None:
-        followers = await _latest_influencer_followers(db, ci.influencer_id)
+        followers = await _latest_influencer_followers(
+            db, ci.influencer_id, org_id
+        )
 
     computed = compute_derived(
         cost=float(ci.cost) if ci.cost is not None else None,
@@ -259,6 +267,7 @@ async def recompute_for_ci(
                 metric_name=name,
                 metric_value=Decimal(str(value)),
                 source=MetricSource.CALCULATED,
+                org_id=org_id,
             )
             db.add(row)
         written.append(row)
@@ -270,31 +279,33 @@ async def recompute_for_ci(
 
 
 async def recompute_for_ci_id(
-    db: AsyncSession, ci_id: uuid.UUID
+    db: AsyncSession, ci_id: uuid.UUID, org_id: str
 ) -> list[Metric] | None:
     ci = await db.scalar(
         select(CampaignInfluencer).where(
             CampaignInfluencer.id == ci_id,
+            CampaignInfluencer.org_id == org_id,
             CampaignInfluencer.deleted_at.is_(None),
         )
     )
     if ci is None:
         return None
-    return await recompute_for_ci(db, ci)
+    return await recompute_for_ci(db, ci, org_id)
 
 
 async def recompute_for_campaign(
-    db: AsyncSession, campaign_id: uuid.UUID
+    db: AsyncSession, campaign_id: uuid.UUID, org_id: str
 ) -> list[Metric]:
     cis = list(
         await db.scalars(
             select(CampaignInfluencer).where(
                 CampaignInfluencer.campaign_id == campaign_id,
+                CampaignInfluencer.org_id == org_id,
                 CampaignInfluencer.deleted_at.is_(None),
             )
         )
     )
     written: list[Metric] = []
     for ci in cis:
-        written.extend(await recompute_for_ci(db, ci))
+        written.extend(await recompute_for_ci(db, ci, org_id))
     return written

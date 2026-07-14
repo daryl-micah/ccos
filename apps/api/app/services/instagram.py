@@ -305,6 +305,7 @@ async def store_profile_metrics(
             metric_name=name,
             metric_value=Decimal(str(value)),
             source=MetricSource.INSTAGRAM,
+            org_id=influencer.org_id,
         )
         db.add(row)
         rows.append(row)
@@ -346,11 +347,12 @@ def fetch_post(url: str) -> PostStats:
     )
 
 
-async def _latest_followers(db: AsyncSession, influencer_id) -> float | None:
+async def _latest_followers(db: AsyncSession, influencer_id, org_id: str) -> float | None:
     row = await db.scalar(
         select(Metric)
         .where(
             Metric.influencer_id == influencer_id,
+            Metric.org_id == org_id,
             Metric.metric_name == "followers",
             Metric.deleted_at.is_(None),
         )
@@ -374,7 +376,9 @@ async def store_post_metrics(
     (idempotent re-sync); manual entries always win and are left untouched.
     """
     ci = await db.get(CampaignInfluencer, post.campaign_influencer_id)
-    followers = await _latest_followers(db, ci.influencer_id) if ci else None
+    followers = (
+        await _latest_followers(db, ci.influencer_id, post.org_id) if ci else None
+    )
 
     values: dict[str, float] = {
         "likes": float(stats.likes),
@@ -388,6 +392,7 @@ async def store_post_metrics(
     existing = await db.scalars(
         select(Metric).where(
             Metric.post_id == post.id,
+            Metric.org_id == post.org_id,
             Metric.source == MetricSource.INSTAGRAM,
             Metric.deleted_at.is_(None),
         )
@@ -403,6 +408,7 @@ async def store_post_metrics(
             metric_name=name,
             metric_value=Decimal(str(value)),
             source=MetricSource.INSTAGRAM,
+            org_id=post.org_id,
         )
         db.add(row)
         rows.append(row)

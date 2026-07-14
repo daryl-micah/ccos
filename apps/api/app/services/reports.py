@@ -87,12 +87,14 @@ def _xlsx(wb: Workbook, filename: str) -> tuple[io.BytesIO, str]:
 
 
 async def build_campaign_report(
-    db: AsyncSession, campaign_id: uuid.UUID
+    db: AsyncSession, campaign_id: uuid.UUID, org_id: str
 ) -> tuple[io.BytesIO, str] | None:
     """Return (xlsx bytes, filename) for the campaign, or None if not found."""
     campaign = await db.scalar(
         select(Campaign).where(
-            Campaign.id == campaign_id, Campaign.deleted_at.is_(None)
+            Campaign.id == campaign_id,
+            Campaign.org_id == org_id,
+            Campaign.deleted_at.is_(None),
         )
     )
     if campaign is None:
@@ -102,6 +104,7 @@ async def build_campaign_report(
         await db.scalars(
             select(CampaignInfluencer).where(
                 CampaignInfluencer.campaign_id == campaign_id,
+                CampaignInfluencer.org_id == org_id,
                 CampaignInfluencer.deleted_at.is_(None),
             )
         )
@@ -114,6 +117,7 @@ async def build_campaign_report(
         for i in await db.scalars(
             select(Influencer).where(
                 Influencer.id.in_(inf_ids or [uuid.uuid4()]),
+                Influencer.org_id == org_id,
                 Influencer.deleted_at.is_(None),
             )
         )
@@ -122,6 +126,7 @@ async def build_campaign_report(
         await db.scalars(
             select(Deliverable).where(
                 Deliverable.campaign_influencer_id.in_(ci_ids or [uuid.uuid4()]),
+                Deliverable.org_id == org_id,
                 Deliverable.deleted_at.is_(None),
             )
         )
@@ -130,6 +135,7 @@ async def build_campaign_report(
         await db.scalars(
             select(Post).where(
                 Post.campaign_influencer_id.in_(ci_ids or [uuid.uuid4()]),
+                Post.org_id == org_id,
                 Post.deleted_at.is_(None),
             )
         )
@@ -138,6 +144,7 @@ async def build_campaign_report(
         await db.scalars(
             select(Metric).where(
                 Metric.campaign_influencer_id.in_(ci_ids or [uuid.uuid4()]),
+                Metric.org_id == org_id,
                 Metric.deleted_at.is_(None),
             )
         )
@@ -316,11 +323,14 @@ class _Bundle:
     agencies: dict[uuid.UUID, Agency]  # agency_id -> Agency ("closed by")
 
 
-async def _latest_followers(db: AsyncSession, inf_ids: list[uuid.UUID]) -> dict:
+async def _latest_followers(
+    db: AsyncSession, inf_ids: list[uuid.UUID], org_id: str
+) -> dict:
     rows = await db.scalars(
         select(Metric)
         .where(
             Metric.influencer_id.in_(inf_ids or [uuid.uuid4()]),
+            Metric.org_id == org_id,
             Metric.metric_name == "followers",
             Metric.deleted_at.is_(None),
         )
@@ -332,10 +342,13 @@ async def _latest_followers(db: AsyncSession, inf_ids: list[uuid.UUID]) -> dict:
     return out
 
 
-async def _repeat_influencers(db: AsyncSession, inf_ids: list[uuid.UUID]) -> set:
+async def _repeat_influencers(
+    db: AsyncSession, inf_ids: list[uuid.UUID], org_id: str
+) -> set:
     rows = await db.scalars(
         select(CampaignInfluencer).where(
             CampaignInfluencer.influencer_id.in_(inf_ids or [uuid.uuid4()]),
+            CampaignInfluencer.org_id == org_id,
             CampaignInfluencer.deleted_at.is_(None),
         )
     )
@@ -345,10 +358,14 @@ async def _repeat_influencers(db: AsyncSession, inf_ids: list[uuid.UUID]) -> set
     return {inf for inf, camps in campaigns_per_inf.items() if len(camps) > 1}
 
 
-async def _load_bundle(db: AsyncSession, campaign_id: uuid.UUID) -> _Bundle | None:
+async def _load_bundle(
+    db: AsyncSession, campaign_id: uuid.UUID, org_id: str
+) -> _Bundle | None:
     campaign = await db.scalar(
         select(Campaign).where(
-            Campaign.id == campaign_id, Campaign.deleted_at.is_(None)
+            Campaign.id == campaign_id,
+            Campaign.org_id == org_id,
+            Campaign.deleted_at.is_(None),
         )
     )
     if campaign is None:
@@ -358,6 +375,7 @@ async def _load_bundle(db: AsyncSession, campaign_id: uuid.UUID) -> _Bundle | No
         await db.scalars(
             select(CampaignInfluencer).where(
                 CampaignInfluencer.campaign_id == campaign_id,
+                CampaignInfluencer.org_id == org_id,
                 CampaignInfluencer.deleted_at.is_(None),
             )
         )
@@ -370,6 +388,7 @@ async def _load_bundle(db: AsyncSession, campaign_id: uuid.UUID) -> _Bundle | No
         for i in await db.scalars(
             select(Influencer).where(
                 Influencer.id.in_(inf_ids or [uuid.uuid4()]),
+                Influencer.org_id == org_id,
                 Influencer.deleted_at.is_(None),
             )
         )
@@ -377,18 +396,21 @@ async def _load_bundle(db: AsyncSession, campaign_id: uuid.UUID) -> _Bundle | No
     deliverables = await db.scalars(
         select(Deliverable).where(
             Deliverable.campaign_influencer_id.in_(ci_ids or [uuid.uuid4()]),
+            Deliverable.org_id == org_id,
             Deliverable.deleted_at.is_(None),
         )
     )
     posts = await db.scalars(
         select(Post).where(
             Post.campaign_influencer_id.in_(ci_ids or [uuid.uuid4()]),
+            Post.org_id == org_id,
             Post.deleted_at.is_(None),
         )
     )
     metrics = await db.scalars(
         select(Metric).where(
             Metric.campaign_influencer_id.in_(ci_ids or [uuid.uuid4()]),
+            Metric.org_id == org_id,
             Metric.deleted_at.is_(None),
         )
     )
@@ -412,6 +434,7 @@ async def _load_bundle(db: AsyncSession, campaign_id: uuid.UUID) -> _Bundle | No
         for a in await db.scalars(
             select(Agency).where(
                 Agency.id.in_(agency_ids or [uuid.uuid4()]),
+                Agency.org_id == org_id,
                 Agency.deleted_at.is_(None),
             )
         )
@@ -425,8 +448,8 @@ async def _load_bundle(db: AsyncSession, campaign_id: uuid.UUID) -> _Bundle | No
         posts_by_ci=posts_by_ci,
         metrics_by_ci=metrics_by_ci,
         metrics_by_post=metrics_by_post,
-        followers=await _latest_followers(db, inf_ids),
-        repeat=await _repeat_influencers(db, inf_ids),
+        followers=await _latest_followers(db, inf_ids, org_id),
+        repeat=await _repeat_influencers(db, inf_ids, org_id),
         agencies=agencies,
     )
 
@@ -446,10 +469,10 @@ def _metric_columns(metric_lists, exclude: set[str] | None = None) -> list[str]:
 
 
 async def build_campaign_creators_report(
-    db: AsyncSession, campaign_id: uuid.UUID
+    db: AsyncSession, campaign_id: uuid.UUID, org_id: str
 ) -> tuple[io.BytesIO, str] | None:
     """Campaign-wise creator sheet: one row per creator with aggregated metrics."""
-    b = await _load_bundle(db, campaign_id)
+    b = await _load_bundle(db, campaign_id, org_id)
     if b is None:
         return None
 
@@ -508,10 +531,10 @@ async def build_campaign_creators_report(
 
 
 async def build_campaign_posts_report(
-    db: AsyncSession, campaign_id: uuid.UUID
+    db: AsyncSession, campaign_id: uuid.UUID, org_id: str
 ) -> tuple[io.BytesIO, str] | None:
     """Campaign-wise posts sheet: one row per live post with its metrics."""
-    b = await _load_bundle(db, campaign_id)
+    b = await _load_bundle(db, campaign_id, org_id)
     if b is None:
         return None
 
@@ -580,10 +603,10 @@ POA_HEADERS = [
 
 
 async def build_campaign_poa_report(
-    db: AsyncSession, campaign_id: uuid.UUID
+    db: AsyncSession, campaign_id: uuid.UUID, org_id: str
 ) -> tuple[io.BytesIO, str] | None:
     """Single 'POA - Supply' sheet: one row per live post (master-tracker layout)."""
-    b = await _load_bundle(db, campaign_id)
+    b = await _load_bundle(db, campaign_id, org_id)
     if b is None:
         return None
 
@@ -677,26 +700,32 @@ async def build_campaign_poa_report(
     return _xlsx(wb, f"{_slug(b.campaign.name)}_poa.xlsx")
 
 
-async def build_tracker_report(db: AsyncSession) -> tuple[io.BytesIO, str]:
+async def build_tracker_report(db: AsyncSession, org_id: str) -> tuple[io.BytesIO, str]:
     """Overall campaigns tracker: one row per campaign with aggregated funnel."""
     campaigns = list(
         await db.scalars(
             select(Campaign)
-            .where(Campaign.deleted_at.is_(None))
+            .where(Campaign.org_id == org_id, Campaign.deleted_at.is_(None))
             .order_by(Campaign.created_at)
         )
     )
     cis = list(
         await db.scalars(
-            select(CampaignInfluencer).where(CampaignInfluencer.deleted_at.is_(None))
+            select(CampaignInfluencer).where(
+                CampaignInfluencer.org_id == org_id,
+                CampaignInfluencer.deleted_at.is_(None),
+            )
         )
     )
     posts = list(
-        await db.scalars(select(Post).where(Post.deleted_at.is_(None)))
+        await db.scalars(
+            select(Post).where(Post.org_id == org_id, Post.deleted_at.is_(None))
+        )
     )
     metrics = list(
         await db.scalars(
             select(Metric).where(
+                Metric.org_id == org_id,
                 Metric.deleted_at.is_(None),
                 Metric.campaign_influencer_id.is_not(None),
             )

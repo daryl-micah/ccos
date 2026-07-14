@@ -4,9 +4,10 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import Tenant, get_tenant
 from app.core.database import get_db
 from app.crud import CRUD
-from app.models import Deliverable, Post
+from app.models import CampaignInfluencer, Deliverable, Post
 from app.models.enums import DeliverableStatus
 from app.schemas.post import PostCreate, PostMetricsResult, PostOut, PostUpdate
 from app.services import instagram, metric_engine
@@ -14,13 +15,14 @@ from app.services import instagram, metric_engine
 router = APIRouter(prefix="/posts", tags=["posts"])
 crud = CRUD(Post)
 deliverable_crud = CRUD(Deliverable)
+ci_crud = CRUD(CampaignInfluencer)
 
 
 async def _mark_deliverable_posted(db: AsyncSession, post: Post) -> None:
     """A linked live post fulfils its deliverable: flip pending → posted."""
     if post.deliverable_id is None:
         return
-    deliverable = await deliverable_crud.get(db, post.deliverable_id)
+    deliverable = await deliverable_crud.get(db, post.deliverable_id, org_id=post.org_id)
     if deliverable is None:
         return
     if deliverable.status == DeliverableStatus.PENDING:
@@ -31,9 +33,13 @@ async def _mark_deliverable_posted(db: AsyncSession, post: Post) -> None:
 
 
 @router.post("/{post_id}/sync-metrics", response_model=PostMetricsResult)
-async def sync_post_metrics(post_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def sync_post_metrics(
+    post_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
+):
     """Fetch a live post's stats (likes, comments, views, ER%) from Instagram."""
-    post = await crud.get(db, post_id)
+    post = await crud.get(db, post_id, org_id=tenant.org_id)
     if post is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Post not found")
     if post.platform != "instagram":
@@ -58,7 +64,7 @@ async def sync_post_metrics(post_id: uuid.UUID, db: AsyncSession = Depends(get_d
 
     # Derive both engagement rates separately so any manually-entered shares
     # are folded in (Instagram's API omits shares).
-    er = await metric_engine.recompute_post_engagement(db, post.id)
+    er = await metric_engine.recompute_post_engagement(db, post.id, tenant.org_id)
     er_followers = er.get("engagement_rate")
     er_reach = er.get("engagement_rate_reach")
 
@@ -78,6 +84,7 @@ async def sync_post_metrics(post_id: uuid.UUID, db: AsyncSession = Depends(get_d
 @router.get("", response_model=list[PostOut])
 async def list_posts(
     db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
     skip: int = 0,
     limit: int = Query(100, le=500),
     campaign_influencer_id: uuid.UUID | None = None,
@@ -85,6 +92,7 @@ async def list_posts(
 ):
     return await crud.list(
         db,
+        org_id=tenant.org_id,
         skip=skip,
         limit=limit,
         filters={
@@ -95,15 +103,29 @@ async def list_posts(
 
 
 @router.post("", response_model=PostOut, status_code=status.HTTP_201_CREATED)
-async def create_post(data: PostCreate, db: AsyncSession = Depends(get_db)):
-    post = await crud.create(db, data)
+async def create_post(
+    data: PostCreate,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
+):
+    if not await ci_crud.exists(db, data.campaign_influencer_id, org_id=tenant.org_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "CampaignInfluencer not found")
+    if data.deliverable_id is not None and not await deliverable_crud.exists(
+        db, data.deliverable_id, org_id=tenant.org_id
+    ):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Deliverable not found")
+    post = await crud.create(db, data, org_id=tenant.org_id)
     await _mark_deliverable_posted(db, post)
     return post
 
 
 @router.get("/{post_id}", response_model=PostOut)
-async def get_post(post_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    obj = await crud.get(db, post_id)
+async def get_post(
+    post_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
+):
+    obj = await crud.get(db, post_id, org_id=tenant.org_id)
     if obj is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Post not found")
     return obj
@@ -111,19 +133,30 @@ async def get_post(post_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
 
 @router.patch("/{post_id}", response_model=PostOut)
 async def update_post(
-    post_id: uuid.UUID, data: PostUpdate, db: AsyncSession = Depends(get_db)
+    post_id: uuid.UUID,
+    data: PostUpdate,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
 ):
-    obj = await crud.get(db, post_id)
+    obj = await crud.get(db, post_id, org_id=tenant.org_id)
     if obj is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Post not found")
+    if data.deliverable_id is not None and not await deliverable_crud.exists(
+        db, data.deliverable_id, org_id=tenant.org_id
+    ):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Deliverable not found")
     updated = await crud.update(db, obj, data)
     await _mark_deliverable_posted(db, updated)
     return updated
 
 
 @router.delete("/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_post(post_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    obj = await crud.get(db, post_id)
+async def delete_post(
+    post_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
+):
+    obj = await crud.get(db, post_id, org_id=tenant.org_id)
     if obj is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Post not found")
     await crud.remove(db, obj)

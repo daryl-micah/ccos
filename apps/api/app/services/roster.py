@@ -26,12 +26,14 @@ async def import_roster(
     agency_id: uuid.UUID | None,
     filename: str,
     content: bytes,
+    org_id: str,
 ) -> dict:
     rows = parse_influencer_rows(filename, content)
 
     existing = await db.scalars(
         select(CampaignInfluencer).where(
             CampaignInfluencer.campaign_id == campaign_id,
+            CampaignInfluencer.org_id == org_id,
             CampaignInfluencer.deleted_at.is_(None),
         )
     )
@@ -50,6 +52,7 @@ async def import_roster(
             inf = await db.scalar(
                 select(Influencer).where(
                     func.lower(Influencer.instagram_username) == handle,
+                    Influencer.org_id == org_id,
                     Influencer.deleted_at.is_(None),
                 )
             )
@@ -57,6 +60,7 @@ async def import_roster(
             inf = await db.scalar(
                 select(Influencer).where(
                     func.lower(Influencer.name) == name.lower(),
+                    Influencer.org_id == org_id,
                     Influencer.deleted_at.is_(None),
                 )
             )
@@ -64,7 +68,7 @@ async def import_roster(
             data = dict(row)
             if handle:
                 data["instagram_username"] = handle  # store the clean handle
-            inf = Influencer(**data)
+            inf = Influencer(**data, org_id=org_id)
             db.add(inf)
             await db.flush()
             created.append(inf)
@@ -78,6 +82,7 @@ async def import_roster(
                 campaign_id=campaign_id,
                 influencer_id=inf.id,
                 agency_id=agency_id,
+                org_id=org_id,
             )
         )
         on_campaign.add(inf.id)

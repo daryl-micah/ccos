@@ -45,17 +45,17 @@ SYSTEM_PROMPT = (
 )
 
 
-async def generate_insights(db: AsyncSession) -> dict:
+async def generate_insights(db: AsyncSession, org_id: str) -> dict:
     if not settings.groq_api_key:
         raise AINotConfiguredError(
             "AI insights are not configured. Set GROQ_API_KEY to enable."
         )
 
     creators, cities, categories, campaigns = (
-        await analytics.creator_rankings(db),
-        await analytics.city_rankings(db),
-        await analytics.category_rankings(db),
-        await analytics.campaign_rankings(db),
+        await analytics.creator_rankings(db, org_id),
+        await analytics.city_rankings(db, org_id),
+        await analytics.category_rankings(db, org_id),
+        await analytics.campaign_rankings(db, org_id),
     )
     data = {
         "creators": creators[:25],

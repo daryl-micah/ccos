@@ -41,30 +41,39 @@ def _avg(values: list[float]) -> float | None:
     return round(sum(values) / len(values), 4) if values else None
 
 
-async def _ci_stats(db: AsyncSession) -> tuple[
+async def _ci_stats(db: AsyncSession, org_id: str) -> tuple[
     dict, dict[str, Influencer], dict[str, Campaign], dict[str, _CiStats]
 ]:
     cis = list(
         await db.scalars(
             select(CampaignInfluencer).where(
-                CampaignInfluencer.deleted_at.is_(None)
+                CampaignInfluencer.org_id == org_id,
+                CampaignInfluencer.deleted_at.is_(None),
             )
         )
     )
     influencers = {
         str(i.id): i
         for i in await db.scalars(
-            select(Influencer).where(Influencer.deleted_at.is_(None))
+            select(Influencer).where(
+                Influencer.org_id == org_id, Influencer.deleted_at.is_(None)
+            )
         )
     }
     campaigns = {
         str(c.id): c
         for c in await db.scalars(
-            select(Campaign).where(Campaign.deleted_at.is_(None))
+            select(Campaign).where(
+                Campaign.org_id == org_id, Campaign.deleted_at.is_(None)
+            )
         )
     }
     metrics = list(
-        await db.scalars(select(Metric).where(Metric.deleted_at.is_(None)))
+        await db.scalars(
+            select(Metric).where(
+                Metric.org_id == org_id, Metric.deleted_at.is_(None)
+            )
+        )
     )
 
     by_ci_name: dict[str, dict[str, list[Metric]]] = defaultdict(
@@ -105,8 +114,8 @@ class _Agg:
     rates: list = field(default_factory=list)
 
 
-async def creator_rankings(db: AsyncSession) -> list[dict]:
-    cis, influencers, _campaigns, stats = await _ci_stats(db)
+async def creator_rankings(db: AsyncSession, org_id: str) -> list[dict]:
+    cis, influencers, _campaigns, stats = await _ci_stats(db, org_id)
     agg: dict[str, _Agg] = defaultdict(_Agg)
     for ci in cis:
         s = stats[str(ci.id)]
@@ -141,8 +150,8 @@ async def creator_rankings(db: AsyncSession) -> list[dict]:
     return rows
 
 
-async def _group_by(db: AsyncSession, key: str) -> list[dict]:
-    cis, influencers, _campaigns, stats = await _ci_stats(db)
+async def _group_by(db: AsyncSession, org_id: str, key: str) -> list[dict]:
+    cis, influencers, _campaigns, stats = await _ci_stats(db, org_id)
     agg: dict[str, _Agg] = defaultdict(_Agg)
     for ci in cis:
         s = stats[str(ci.id)]
@@ -172,16 +181,16 @@ async def _group_by(db: AsyncSession, key: str) -> list[dict]:
     return rows
 
 
-async def city_rankings(db: AsyncSession) -> list[dict]:
-    return await _group_by(db, "city")
+async def city_rankings(db: AsyncSession, org_id: str) -> list[dict]:
+    return await _group_by(db, org_id, "city")
 
 
-async def category_rankings(db: AsyncSession) -> list[dict]:
-    return await _group_by(db, "category")
+async def category_rankings(db: AsyncSession, org_id: str) -> list[dict]:
+    return await _group_by(db, org_id, "category")
 
 
-async def campaign_rankings(db: AsyncSession) -> list[dict]:
-    cis, _influencers, campaigns, stats = await _ci_stats(db)
+async def campaign_rankings(db: AsyncSession, org_id: str) -> list[dict]:
+    cis, _influencers, campaigns, stats = await _ci_stats(db, org_id)
     agg: dict[str, _Agg] = defaultdict(_Agg)
     for ci in cis:
         s = stats[str(ci.id)]

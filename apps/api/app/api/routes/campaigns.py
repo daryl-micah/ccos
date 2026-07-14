@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Upload
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import Tenant, get_tenant
 from app.core.database import get_db
 from app.crud import CRUD
-from app.models import Campaign
+from app.models import Agency, Campaign
 from app.schemas.campaign import CampaignCreate, CampaignOut, CampaignUpdate
 from app.schemas.influencer import InfluencerOut
 from app.schemas.metric import MetricOut
@@ -15,17 +16,20 @@ from app.services.roster import import_roster
 
 router = APIRouter(prefix="/campaigns", tags=["campaigns"])
 crud = CRUD(Campaign)
+agency_crud = CRUD(Agency)
 
 
 @router.post("/{campaign_id}/recompute-metrics", response_model=list[MetricOut])
 async def recompute_campaign_metrics(
-    campaign_id: uuid.UUID, db: AsyncSession = Depends(get_db)
+    campaign_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
 ):
     """Recompute derived KPIs for every creator in the campaign."""
-    obj = await crud.get(db, campaign_id)
+    obj = await crud.get(db, campaign_id, org_id=tenant.org_id)
     if obj is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Campaign not found")
-    return await recompute_for_campaign(db, campaign_id)
+    return await recompute_for_campaign(db, campaign_id, tenant.org_id)
 
 
 class RosterImportResult(BaseModel):
@@ -41,16 +45,26 @@ async def import_campaign_roster(
     file: UploadFile = File(...),
     agency_id: uuid.UUID | None = Form(None),  # omit for in-house
     db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
 ):
     """Import an agency's creator list (name/contact/handle) into the campaign."""
-    campaign = await crud.get(db, campaign_id)
+    campaign = await crud.get(db, campaign_id, org_id=tenant.org_id)
     if campaign is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Campaign not found")
+    if agency_id is not None and not await agency_crud.exists(
+        db, agency_id, org_id=tenant.org_id
+    ):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Agency not found")
 
     content = await file.read()
     try:
         result = await import_roster(
-            db, campaign_id, agency_id, file.filename or "upload", content
+            db,
+            campaign_id,
+            agency_id,
+            file.filename or "upload",
+            content,
+            tenant.org_id,
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
@@ -71,21 +85,32 @@ async def import_campaign_roster(
 @router.get("", response_model=list[CampaignOut])
 async def list_campaigns(
     db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
     skip: int = 0,
     limit: int = Query(100, le=500),
     status: str | None = None,
 ):
-    return await crud.list(db, skip=skip, limit=limit, filters={"status": status})
+    return await crud.list(
+        db, org_id=tenant.org_id, skip=skip, limit=limit, filters={"status": status}
+    )
 
 
 @router.post("", response_model=CampaignOut, status_code=status.HTTP_201_CREATED)
-async def create_campaign(data: CampaignCreate, db: AsyncSession = Depends(get_db)):
-    return await crud.create(db, data)
+async def create_campaign(
+    data: CampaignCreate,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
+):
+    return await crud.create(db, data, org_id=tenant.org_id)
 
 
 @router.get("/{campaign_id}", response_model=CampaignOut)
-async def get_campaign(campaign_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    obj = await crud.get(db, campaign_id)
+async def get_campaign(
+    campaign_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
+):
+    obj = await crud.get(db, campaign_id, org_id=tenant.org_id)
     if obj is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Campaign not found")
     return obj
@@ -93,17 +118,24 @@ async def get_campaign(campaign_id: uuid.UUID, db: AsyncSession = Depends(get_db
 
 @router.patch("/{campaign_id}", response_model=CampaignOut)
 async def update_campaign(
-    campaign_id: uuid.UUID, data: CampaignUpdate, db: AsyncSession = Depends(get_db)
+    campaign_id: uuid.UUID,
+    data: CampaignUpdate,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
 ):
-    obj = await crud.get(db, campaign_id)
+    obj = await crud.get(db, campaign_id, org_id=tenant.org_id)
     if obj is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Campaign not found")
     return await crud.update(db, obj, data)
 
 
 @router.delete("/{campaign_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_campaign(campaign_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
-    obj = await crud.get(db, campaign_id)
+async def delete_campaign(
+    campaign_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
+):
+    obj = await crud.get(db, campaign_id, org_id=tenant.org_id)
     if obj is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Campaign not found")
     await crud.remove(db, obj)

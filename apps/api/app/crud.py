@@ -17,24 +17,34 @@ class CRUD[ModelT: Base]:
     def __init__(self, model: type[ModelT]):
         self.model = model
 
-    async def get(self, db: AsyncSession, obj_id: uuid.UUID) -> ModelT | None:
+    async def get(
+        self, db: AsyncSession, obj_id: uuid.UUID, *, org_id: str
+    ) -> ModelT | None:
         result = await db.execute(
             select(self.model).where(
                 self.model.id == obj_id,
+                self.model.org_id == org_id,
                 self.model.deleted_at.is_(None),
             )
         )
         return result.scalar_one_or_none()
 
+    async def exists(self, db: AsyncSession, obj_id: uuid.UUID, *, org_id: str) -> bool:
+        """Whether ``obj_id`` exists in ``org_id`` — for validating FK references."""
+        return await self.get(db, obj_id, org_id=org_id) is not None
+
     async def list(
         self,
         db: AsyncSession,
         *,
+        org_id: str,
         skip: int = 0,
         limit: int = 100,
         filters: dict | None = None,
     ) -> list[ModelT]:
-        stmt = select(self.model).where(self.model.deleted_at.is_(None))
+        stmt = select(self.model).where(
+            self.model.org_id == org_id, self.model.deleted_at.is_(None)
+        )
         for field, value in (filters or {}).items():
             if value is not None:
                 stmt = stmt.where(getattr(self.model, field) == value)
@@ -42,9 +52,11 @@ class CRUD[ModelT: Base]:
         result = await db.execute(stmt)
         return list(result.scalars().all())
 
-    async def count(self, db: AsyncSession, *, filters: dict | None = None) -> int:
+    async def count(
+        self, db: AsyncSession, *, org_id: str, filters: dict | None = None
+    ) -> int:
         stmt = select(func.count()).select_from(self.model).where(
-            self.model.deleted_at.is_(None)
+            self.model.org_id == org_id, self.model.deleted_at.is_(None)
         )
         for field, value in (filters or {}).items():
             if value is not None:
@@ -52,8 +64,8 @@ class CRUD[ModelT: Base]:
         result = await db.execute(stmt)
         return int(result.scalar_one())
 
-    async def create(self, db: AsyncSession, data: BaseModel) -> ModelT:
-        obj = self.model(**data.model_dump(exclude_unset=True))
+    async def create(self, db: AsyncSession, data: BaseModel, *, org_id: str) -> ModelT:
+        obj = self.model(**data.model_dump(exclude_unset=True), org_id=org_id)
         db.add(obj)
         await db.flush()
         await db.refresh(obj)
@@ -84,12 +96,14 @@ class CRUD[ModelT: Base]:
         )
 
         now = sa.func.now()
+        org_id = obj.org_id
         obj.deleted_at = now
 
         if isinstance(obj, Campaign):
             # Soft-delete all campaign influencers of this campaign
             ci_stmt = sa.select(CampaignInfluencer).where(
                 CampaignInfluencer.campaign_id == obj.id,
+                CampaignInfluencer.org_id == org_id,
                 CampaignInfluencer.deleted_at.is_(None),
             )
             cis = (await db.execute(ci_stmt)).scalars().all()
@@ -100,6 +114,7 @@ class CRUD[ModelT: Base]:
             # Soft-delete all campaign influencers of this influencer
             ci_stmt = sa.select(CampaignInfluencer).where(
                 CampaignInfluencer.influencer_id == obj.id,
+                CampaignInfluencer.org_id == org_id,
                 CampaignInfluencer.deleted_at.is_(None),
             )
             cis = (await db.execute(ci_stmt)).scalars().all()
@@ -110,6 +125,7 @@ class CRUD[ModelT: Base]:
             # Soft-delete deliverables
             deliv_stmt = sa.select(Deliverable).where(
                 Deliverable.campaign_influencer_id == obj.id,
+                Deliverable.org_id == org_id,
                 Deliverable.deleted_at.is_(None),
             )
             delivs = (await db.execute(deliv_stmt)).scalars().all()
@@ -119,31 +135,26 @@ class CRUD[ModelT: Base]:
             # Soft-delete posts
             post_stmt = sa.select(Post).where(
                 Post.campaign_influencer_id == obj.id,
+                Post.org_id == org_id,
                 Post.deleted_at.is_(None),
             )
             posts = (await db.execute(post_stmt)).scalars().all()
             for p in posts:
                 p.deleted_at = now
-                # Soft-delete metrics and insights linked to the post
+                # Soft-delete metrics linked to the post
                 metric_stmt = sa.select(Metric).where(
                     Metric.post_id == p.id,
+                    Metric.org_id == org_id,
                     Metric.deleted_at.is_(None),
                 )
                 metrics = (await db.execute(metric_stmt)).scalars().all()
                 for m in metrics:
                     m.deleted_at = now
 
-                insight_stmt = sa.select(Insight).where(
-                    Insight.post_id == p.id,
-                    Insight.deleted_at.is_(None),
-                )
-                insights = (await db.execute(insight_stmt)).scalars().all()
-                for ins in insights:
-                    ins.deleted_at = now
-
             # Soft-delete metrics direct on CI (no post_id)
             metric_stmt = sa.select(Metric).where(
                 Metric.campaign_influencer_id == obj.id,
+                Metric.org_id == org_id,
                 Metric.post_id.is_(None),
                 Metric.deleted_at.is_(None),
             )
@@ -151,10 +162,11 @@ class CRUD[ModelT: Base]:
             for m in metrics:
                 m.deleted_at = now
 
-            # Soft-delete insights direct on CI (no post_id)
+            # Soft-delete insights (Insight has no post_id — it's scoped only
+            # to the campaign_influencer, never to an individual post).
             insight_stmt = sa.select(Insight).where(
                 Insight.campaign_influencer_id == obj.id,
-                Insight.post_id.is_(None),
+                Insight.org_id == org_id,
                 Insight.deleted_at.is_(None),
             )
             insights = (await db.execute(insight_stmt)).scalars().all()
@@ -164,7 +176,8 @@ class CRUD[ModelT: Base]:
         elif isinstance(obj, Agency):
             # Nullify agency_id on all campaign influencers (analogous to SET NULL)
             ci_stmt = sa.select(CampaignInfluencer).where(
-                CampaignInfluencer.agency_id == obj.id
+                CampaignInfluencer.agency_id == obj.id,
+                CampaignInfluencer.org_id == org_id,
             )
             cis = (await db.execute(ci_stmt)).scalars().all()
             for ci in cis:
