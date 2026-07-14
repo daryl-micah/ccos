@@ -63,8 +63,8 @@ services:
         NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL: /
     restart: unless-stopped
     environment:
-      # Server-side rewrite target: Next proxies /api/v1/* to the API over the
-      # internal Docker network. The API is never published to the host.
+      # Route Handler proxy target: Next forwards /api/v1/* to the API over
+      # the internal Docker network. The API is never published to the host.
       API_INTERNAL_URL: http://api:8000
       # Server-side Clerk key (middleware, server components). Read at
       # runtime, not baked into the build.
