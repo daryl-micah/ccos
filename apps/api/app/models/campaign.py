@@ -3,11 +3,17 @@ from datetime import date
 from sqlalchemy import Date, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDMixin
+from app.models.base import (
+    Base,
+    OrgScopedMixin,
+    SoftDeleteMixin,
+    TimestampMixin,
+    UUIDMixin,
+)
 from app.models.enums import CampaignStatus
 
 
-class Campaign(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
+class Campaign(Base, UUIDMixin, OrgScopedMixin, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "campaigns"
 
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)

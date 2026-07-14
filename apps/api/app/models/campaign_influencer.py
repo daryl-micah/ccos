@@ -4,11 +4,17 @@ from sqlalchemy import ForeignKey, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDMixin
+from app.models.base import (
+    Base,
+    OrgScopedMixin,
+    SoftDeleteMixin,
+    TimestampMixin,
+    UUIDMixin,
+)
 from app.models.enums import CampaignInfluencerStatus
 
 
-class CampaignInfluencer(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
+class CampaignInfluencer(Base, UUIDMixin, OrgScopedMixin, TimestampMixin, SoftDeleteMixin):
     """Join entity: an influencer participating in a campaign."""
 
     __tablename__ = "campaign_influencers"

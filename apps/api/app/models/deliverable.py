@@ -5,11 +5,17 @@ from sqlalchemy import Date, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDMixin
+from app.models.base import (
+    Base,
+    OrgScopedMixin,
+    SoftDeleteMixin,
+    TimestampMixin,
+    UUIDMixin,
+)
 from app.models.enums import DeliverableStatus
 
 
-class Deliverable(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
+class Deliverable(Base, UUIDMixin, OrgScopedMixin, TimestampMixin, SoftDeleteMixin):
     """A content commitment within a campaign-influencer relationship."""
 
     __tablename__ = "deliverables"

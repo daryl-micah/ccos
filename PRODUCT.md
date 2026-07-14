@@ -1021,8 +1021,24 @@ Running log of scope decisions made during development.
   unauthenticated visitors are redirected to sign-in. `ClerkProvider` wraps
   the app in `layout.tsx`, and a `UserButton` in the sidebar handles account
   management / sign-out. Linked to Clerk app `app_3GU4vWmTitBcuf1igYlhZebkbRx`
-  (Creator Campaign OS). Development instance only so far — a production
-  instance and its keys still need to be configured for the deploy.
+  (Creator Campaign OS). Production instance (`ins_3GUDSNjqRgnHkgsZSyLbngh8U74`)
+  now live at `ccos.darylmicah.me`, deployed via the droplet's `.env` (build
+  args for `NEXT_PUBLIC_CLERK_*`, runtime `CLERK_SECRET_KEY`). `/privacy-policy`
+  and `/terms-of-service` are public routes, required for the Google OAuth
+  consent screen, linked below the sign-in/sign-up forms.
+* **Team-workspace isolation via Clerk Organizations** — Multi-tenancy will
+  be modeled with Clerk Organizations, using `org_id` as the tenant key
+  everywhere (denormalized onto child tables so scoping is a single `WHERE`,
+  not a join chain). Users are forced into an org after sign-up — no
+  "personal" ungrouped mode. Rollout is phased and non-destructive: add
+  `org_id` nullable → backfill existing rows into one default org → set
+  `NOT NULL`. The Next BFF's static `next.config.ts` rewrite must become a
+  Route Handler (`app/api/v1/[...path]/route.ts`) in this work, since static
+  rewrites can't attach a per-request token — this is the main architectural
+  change, alongside auditing every route/service for cross-tenant leaks.
+  Full phase breakdown tracked in the task list (Phase 0–7: Clerk config →
+  data model/migration → API auth → BFF identity propagation → query
+  scoping → background jobs → frontend org UX → verification).
 
 ## 2026-06-16
 

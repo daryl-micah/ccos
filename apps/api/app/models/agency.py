@@ -1,10 +1,16 @@
 from sqlalchemy import String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDMixin
+from app.models.base import (
+    Base,
+    OrgScopedMixin,
+    SoftDeleteMixin,
+    TimestampMixin,
+    UUIDMixin,
+)
 
 
-class Agency(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
+class Agency(Base, UUIDMixin, OrgScopedMixin, TimestampMixin, SoftDeleteMixin):
     """Talent agency that supplies creators for campaigns.
 
     A creator's agency is recorded per campaign on CampaignInfluencer

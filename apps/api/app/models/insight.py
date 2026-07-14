@@ -4,10 +4,16 @@ from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDMixin
+from app.models.base import (
+    Base,
+    OrgScopedMixin,
+    SoftDeleteMixin,
+    TimestampMixin,
+    UUIDMixin,
+)
 
 
-class Insight(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
+class Insight(Base, UUIDMixin, OrgScopedMixin, TimestampMixin, SoftDeleteMixin):
     """Human observation about a creator within a campaign."""
 
     __tablename__ = "insights"

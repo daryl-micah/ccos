@@ -1,10 +1,16 @@
 from sqlalchemy import String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDMixin
+from app.models.base import (
+    Base,
+    OrgScopedMixin,
+    SoftDeleteMixin,
+    TimestampMixin,
+    UUIDMixin,
+)
 
 
-class Influencer(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
+class Influencer(Base, UUIDMixin, OrgScopedMixin, TimestampMixin, SoftDeleteMixin):
     __tablename__ = "influencers"
 
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)

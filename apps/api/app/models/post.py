@@ -5,11 +5,17 @@ from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDMixin
+from app.models.base import (
+    Base,
+    OrgScopedMixin,
+    SoftDeleteMixin,
+    TimestampMixin,
+    UUIDMixin,
+)
 from app.models.enums import Platform
 
 
-class Post(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
+class Post(Base, UUIDMixin, OrgScopedMixin, TimestampMixin, SoftDeleteMixin):
     """A live published post — the real-world result of a campaign.
 
     Users paste the live link and track per-post insight metrics

@@ -5,11 +5,17 @@ from sqlalchemy import DateTime, ForeignKey, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, SoftDeleteMixin, TimestampMixin, UUIDMixin
+from app.models.base import (
+    Base,
+    OrgScopedMixin,
+    SoftDeleteMixin,
+    TimestampMixin,
+    UUIDMixin,
+)
 from app.models.enums import MetricSource
 
 
-class Metric(Base, UUIDMixin, TimestampMixin, SoftDeleteMixin):
+class Metric(Base, UUIDMixin, OrgScopedMixin, TimestampMixin, SoftDeleteMixin):
     """Generic metric record (see PRODUCT.md "Metric System").
 
     Scoped to one of: a campaign-influencer (campaign context), a specific
