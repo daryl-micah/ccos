@@ -1,28 +1,47 @@
 name: Deploy
 
-# On every push to main, SSH into the droplet, pull the latest code, and
-# rebuild/restart the stack. Requires repo secrets:
-#   DROPLET_HOST     - droplet IP or hostname
-#   DROPLET_USER     - SSH user (e.g. root or a deploy user)
-#   DROPLET_SSH_KEY  - private key authorized on the droplet
+# On every push to main, build both app images and release them via Heroku's
+# Container Registry. Requires repo secrets:
+#   HEROKU_API_KEY        - from `heroku authorizations:create`
+#   CLERK_PUBLISHABLE_KEY - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, baked into the
+#                            web build (not sensitive, but kept as a secret to
+#                            avoid hardcoding it here)
+#
+# ubuntu-latest ships the Heroku CLI preinstalled; HEROKU_API_KEY in the
+# environment authenticates it non-interactively.
 on:
   push:
     branches: [main]
   workflow_dispatch: {}
 
 jobs:
-  deploy:
+  deploy-api:
     runs-on: ubuntu-latest
+    env:
+      HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
     steps:
-      - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DROPLET_HOST }}
-          username: ${{ secrets.DROPLET_USER }}
-          key: ${{ secrets.DROPLET_SSH_KEY }}
-          script: |
-            set -e
-            cd ~/ccos
-            git pull origin main
-            docker compose up -d --build
-            docker image prune -f
+      - uses: actions/checkout@v4
+      - name: Push and release ccos-api
+        working-directory: apps/api
+        run: |
+          heroku container:login
+          heroku container:push web -a ccos-api
+          heroku container:release web -a ccos-api
+
+  deploy-web:
+    runs-on: ubuntu-latest
+    env:
+      HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Push and release ccos-web
+        working-directory: apps/web
+        # --context-path is relative to this working-directory: the web
+        # Dockerfile needs the repo root as build context (it installs the
+        # full pnpm workspace before building apps/web).
+        run: |
+          heroku container:login
+          heroku container:push web -a ccos-web \
+            --context-path ../.. \
+            --arg NEXT_PUBLIC_API_URL=/api/v1,NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.CLERK_PUBLISHABLE_KEY }},NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in,NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up,NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/,NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/
+          heroku container:release web -a ccos-web

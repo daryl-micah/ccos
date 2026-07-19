@@ -16,7 +16,6 @@ dependencies = [
     "openpyxl>=3.1",
     "python-multipart>=0.0.12",
     "instagrapi>=2.5",
-    "celery[redis]>=5.4",
     "groq>=0.13",
     "pyjwt[crypto]>=2.9",
     "httpx>=0.28.1",

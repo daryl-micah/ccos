@@ -4,7 +4,7 @@
 
 Monorepo (`pnpm@11.1.1` workspaces). Two apps, no shared packages yet:
 
-- `apps/api/` — FastAPI · async SQLAlchemy 2.0 + asyncpg · Alembic · Celery · Python 3.12 (`uv`)
+- `apps/api/` — FastAPI · async SQLAlchemy 2.0 + asyncpg · Alembic · Python 3.12 (`uv`)
 - `apps/web/` — Next.js 16 (App Router) · TypeScript (strict) · Tailwind v4 · TanStack Table · Recharts
 
 No tests exist anywhere (0% coverage). No authentication — all endpoints public.
@@ -12,8 +12,8 @@ No tests exist anywhere (0% coverage). No authentication — all endpoints publi
 ## Quick start (local dev)
 
 ```bash
-# Infra (Postgres :5433, Redis :6379)
-docker compose up -d postgres redis
+# Infra (Postgres :5433)
+docker compose up -d postgres
 
 # Backend
 cd apps/api
@@ -39,8 +39,8 @@ pnpm dev:web                                   # localhost:3000
 | Backend test (none exist) | `cd apps/api && uv run pytest` |
 | Backend migration | `cd apps/api && uv run alembic upgrade head` |
 | Docker full stack | `docker compose up -d` |
-| Celery worker | `cd apps/api && uv run celery -A app.worker.celery_app worker --loglevel=info` |
-| Celery beat | `cd apps/api && uv run celery -A app.worker.celery_app beat --loglevel=info` |
+| Instagram snapshot (manual) | `cd apps/api && uv run python -m app.cli snapshot` |
+| Recompute metrics (manual) | `cd apps/api && uv run python -m app.cli recompute-metrics` |
 
 ## Quirks & gotchas
 
@@ -49,7 +49,7 @@ pnpm dev:web                                   # localhost:3000
 - **Docker web build** sets `NEXT_ISOLATED_BUILD=1` — this tells `next.config.ts` to skip looking for a monorepo root above `apps/web/`.
 - **Settings cached at import time** via `@lru_cache` — reload the server to pick up `.env` changes.
 - **`get_db` dependency** in `database.py` guards `commit()`/`rollback()` with `session.is_active` checks, but does not use `session.begin()`. Be careful not to double-commit when adding transaction logic.
-- **Celery tasks create their own engine/session** — each task calls `create_async_engine()` and disposes it in `finally`. Do not reuse the app's global engine from sync worker context.
+- **Background job functions (`app/tasks.py`) create their own engine/session** — each calls `create_async_engine()` and disposes it in `finally`, since they can run outside request scope (via `BackgroundTasks` or `app.cli`). Do not reuse the app's global engine there.
 - **Python 3.12 only** — enforced by `.python-version` and `pyproject.toml`.
 - **`ruff` ignores B008** — FastAPI idiomatically uses `Depends()`/`Query()` as function defaults, which B008 would flag.
 
@@ -70,7 +70,7 @@ Still outstanding from the audit (not yet fixed):
 - Instagram login error swallowed (`apps/api/app/services/instagram.py:188-207`)
 - `undefined as T` in `api.ts:56` on 204 responses
 - Empty-string filters stripped from query params (`apps/web/src/lib/api.ts:61-62`)
-- Stale Celery engine sessions (`apps/api/app/tasks.py`)
+- Stale background-job engine sessions (`apps/api/app/tasks.py`)
 
 ## Existing instruction files
 

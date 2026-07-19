@@ -116,8 +116,9 @@ Teams keep their existing sheets and adopt CCOS in parallel — no migration cli
 - **Frontend** — Next.js (App Router) · TypeScript · Tailwind v4 · TanStack
   Table · Recharts
 - **Backend** — FastAPI · async SQLAlchemy 2.0 + asyncpg · Pydantic · Alembic
-- **Data** — PostgreSQL (UUID PKs, soft delete) · Redis
-- **Background jobs** — Celery worker + beat (daily snapshots, recompute)
+- **Data** — PostgreSQL (UUID PKs, soft delete)
+- **Background jobs** — in-process (FastAPI `BackgroundTasks` for on-demand
+  sync; a scheduled `app.cli` run for the daily snapshot)
 - **Collectors** — Instagram via `instagrapi`
 - **AI** — Groq (`llama-3.3-70b-versatile` by default)
 
@@ -128,8 +129,8 @@ Teams keep their existing sheets and adopt CCOS in parallel — no migration cli
 ```
 apps/
   web/   Next.js frontend (TypeScript, Tailwind, TanStack Table, Recharts)
-  api/   FastAPI backend — models, CRUD, services, and the Celery worker/beat
-docker-compose.yml   Postgres + Redis + api + web + worker + beat
+  api/   FastAPI backend — models, CRUD, services, background jobs
+docker-compose.yml   Postgres + api + web + caddy
 PRODUCT.md           Product spec, roadmap, and decisions log
 ```
 
@@ -139,13 +140,13 @@ PRODUCT.md           Product spec, roadmap, and decisions log
 
 - Node 20+ and pnpm 11+
 - Python 3.12 (managed via [`uv`](https://docs.astral.sh/uv/))
-- Docker (for local Postgres + Redis)
+- Docker (for local Postgres)
 
 ## Quick start (local dev)
 
 ```bash
-# 1. Start infra (Postgres on host :5433, Redis on :6379)
-docker compose up -d postgres redis
+# 1. Start infra (Postgres on host :5433)
+docker compose up -d postgres
 
 # 2. Backend
 cd apps/api
@@ -161,12 +162,14 @@ pnpm dev:web
 # App at http://localhost:3000
 ```
 
-Background jobs (Instagram snapshots, recompute) — optional in dev:
+Background jobs (Instagram snapshots, recompute) run in-process — no
+separate worker to start. The "Sync Now" button fires one via FastAPI
+`BackgroundTasks`; in dev you can also trigger them directly:
 
 ```bash
 cd apps/api
-uv run celery -A app.worker.celery_app worker --loglevel=info   # processes jobs
-uv run celery -A app.worker.celery_app beat   --loglevel=info   # daily schedule
+uv run python -m app.cli snapshot            # Instagram snapshot
+uv run python -m app.cli recompute-metrics   # recompute derived KPIs
 ```
 
 ### Configuration
@@ -180,7 +183,7 @@ uv run celery -A app.worker.celery_app beat   --loglevel=info   # daily schedule
 ## Run everything with Docker
 
 ```bash
-docker compose up -d   # postgres + redis + api + web + worker + beat
+docker compose up -d   # postgres + api + web + caddy
 # Web → http://localhost:3000   API → http://localhost:8000/docs
 ```
 

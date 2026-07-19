@@ -39,5 +39,8 @@ RUN cd apps/web && ./node_modules/.bin/next build
 EXPOSE 3000
 
 WORKDIR /app/apps/web
-ENV PORT=3000 HOSTNAME=0.0.0.0
-CMD ["./node_modules/.bin/next", "start", "-H", "0.0.0.0", "-p", "3000"]
+ENV HOSTNAME=0.0.0.0
+
+# $PORT is set dynamically by Heroku; falls back to 3000 for docker-compose,
+# where it isn't set.
+CMD ["sh", "-c", "./node_modules/.bin/next start -H 0.0.0.0 -p ${PORT:-3000}"]
