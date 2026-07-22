@@ -194,7 +194,7 @@ export default function InfluencerDetailPage({
         />
         <YouTubeCard
           influencerId={id}
-          youtubeChannel={influencer.youtube_channel}
+          youtubeChannel={influencer.youtube_channel ?? influencer.youtube_channel_id}
           initialMetrics={ytMetrics}
         />
       </div>

@@ -41,6 +41,6 @@ class PostMetricsResult(BaseModel):
     engagement_rate_reach: float | None = None  # by views (video/reel)
     followers: int | None = None
     subscribers: int | None = None
-    posted_at: datetime | None = None  # extracted from Instagram
+    posted_at: datetime | None = None  # extracted from the provider
     shares_available: bool = False  # Instagram doesn't expose shares/reposts
     metrics: list[MetricOut]

@@ -109,7 +109,8 @@ export function YouTubeCard({
         {!youtubeChannel ? (
           <p className="text-sm text-muted-foreground">
             No YouTube channel on this influencer. Add{" "}
-            <code className="text-xs">youtube_channel</code> to enable
+            <code className="text-xs">youtube_channel</code> or{" "}
+            <code className="text-xs">youtube_channel_id</code> to enable
             collection.
           </p>
         ) : (

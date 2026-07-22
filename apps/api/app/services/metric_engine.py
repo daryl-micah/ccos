@@ -258,7 +258,8 @@ async def recompute_for_ci(
     # rarely appears among this CI's metrics. Fall back by campaign platform:
     # YouTube-only creators use subscribers; Instagram-only/mixed keeps the
     # existing followers behavior where available.
-    profile_audience = latest("followers") or latest("subscribers")
+    followers = latest("followers")
+    profile_audience = followers if followers is not None else latest("subscribers")
     if profile_audience is None:
         profile_audience = await _profile_audience_for_ci(db, ci, org_id)
 

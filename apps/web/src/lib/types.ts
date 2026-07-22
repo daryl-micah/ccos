@@ -96,7 +96,7 @@ export interface Post extends Timestamped {
 }
 
 export interface Metric extends Timestamped {
-  campaign_influencer_id: string;
+  campaign_influencer_id: string | null;
   influencer_id: string | null;
   post_id: string | null;
   metric_name: string;
