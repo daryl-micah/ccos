@@ -17,6 +17,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InstagramCard } from "@/components/influencers/instagram-card";
+import { YouTubeCard } from "@/components/influencers/youtube-card";
 import {
   Table,
   TableBody,
@@ -37,22 +38,25 @@ export default function InfluencerDetailPage({
   const [links, setLinks] = React.useState<CampaignInfluencer[]>([]);
   const [campaigns, setCampaigns] = React.useState<Campaign[]>([]);
   const [igMetrics, setIgMetrics] = React.useState<Metric[]>([]);
+  const [ytMetrics, setYtMetrics] = React.useState<Metric[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     (async () => {
       try {
-        const [inf, l, allCampaigns, ig] = await Promise.all([
+        const [inf, l, allCampaigns, ig, yt] = await Promise.all([
           api.influencers.get(id),
           api.campaignInfluencers.list({ influencer_id: id, limit: 500 }),
           api.campaigns.list({ limit: 500 }),
           api.metrics.list({ influencer_id: id, source: "instagram", limit: 500 }),
+          api.metrics.list({ influencer_id: id, source: "youtube", limit: 500 }),
         ]);
         setInfluencer(inf);
         setLinks(l);
         setCampaigns(allCampaigns);
         setIgMetrics(ig);
+        setYtMetrics(yt);
       } catch (err) {
         setError(
           err instanceof ApiError
@@ -187,6 +191,11 @@ export default function InfluencerDetailPage({
           influencerId={id}
           instagramUsername={influencer.instagram_username}
           initialMetrics={igMetrics}
+        />
+        <YouTubeCard
+          influencerId={id}
+          youtubeChannel={influencer.youtube_channel}
+          initialMetrics={ytMetrics}
         />
       </div>
     </>

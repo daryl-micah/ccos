@@ -14,6 +14,8 @@ import type {
   Post,
   PostMetricsResult,
   Trends,
+  YouTubeStatus,
+  YouTubeSyncResult,
 } from "./types";
 
 // Relative by default so browser requests hit the Next BFF (same origin), which
@@ -133,9 +135,17 @@ export const api = {
           `/influencers/${id}/sync-instagram?max_posts=${maxPosts}`,
           { method: "POST" },
         ),
+      /** Collect YouTube channel + recent-video stats (Phase 4). */
+      syncYouTube: (id: string, maxVideos = 30) =>
+        request<YouTubeSyncResult>(
+          `/influencers/${id}/sync-youtube?max_videos=${maxVideos}`,
+          { method: "POST" },
+        ),
       /** Historical time series of influencer-scoped metrics (Phase 5). */
-      trends: (id: string, days = 180) =>
-        request<Trends>(`/influencers/${id}/trends?days=${days}`),
+      trends: (id: string, days = 180, source?: string) =>
+        request<Trends>(
+          `/influencers/${id}/trends${qs({ days, source })}`,
+        ),
     },
   ),
   campaignInfluencers: Object.assign(
@@ -178,6 +188,9 @@ export const api = {
     status: () => request<AIStatus>("/ai/status"),
     generateInsights: () =>
       request<AIInsights>("/ai/insights", { method: "POST" }),
+  },
+  youtube: {
+    status: () => request<YouTubeStatus>("/youtube/status"),
   },
   reports: {
     /** Direct download URL for a campaign's full Excel workbook. */

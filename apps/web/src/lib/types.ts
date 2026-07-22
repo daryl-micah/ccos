@@ -50,6 +50,7 @@ export interface Influencer extends Timestamped {
   name: string;
   instagram_username: string | null;
   youtube_channel: string | null;
+  youtube_channel_id: string | null;
   city: string | null;
   country: string | null;
   category: string | null;
@@ -96,6 +97,7 @@ export interface Post extends Timestamped {
 
 export interface Metric extends Timestamped {
   campaign_influencer_id: string;
+  influencer_id: string | null;
   post_id: string | null;
   metric_name: string;
   metric_value: string;
@@ -104,12 +106,13 @@ export interface Metric extends Timestamped {
 }
 
 export interface PostMetricsResult {
-  likes: number;
-  comments: number;
+  likes: number | null;
+  comments: number | null;
   views: number | null;
   engagement_rate: number | null;
   engagement_rate_reach: number | null;
   followers: number | null;
+  subscribers: number | null;
   posted_at: string | null;
   shares_available: boolean;
   metrics: Metric[];
@@ -147,6 +150,39 @@ export interface InstagramSyncResult {
   engagement_rate_reach: number | null;
   posting_frequency: number;
   top_posts: InstagramPost[];
+  metrics: Metric[];
+}
+
+// --- YouTube (Phase 4) ---
+
+export interface YouTubeStatus {
+  configured: boolean;
+}
+
+export interface YouTubeVideo {
+  video_id: string;
+  title: string;
+  url: string;
+  published_at: string | null;
+  views: number | null;
+  likes: number | null;
+  comments: number | null;
+}
+
+export interface YouTubeSyncResult {
+  channel_id: string;
+  title: string;
+  handle: string | null;
+  subscribers: number | null;
+  total_views: number | null;
+  video_count: number | null;
+  avg_views: number;
+  avg_likes: number | null;
+  avg_comments: number | null;
+  engagement_rate: number | null;
+  engagement_rate_reach: number | null;
+  upload_frequency: number;
+  top_videos: YouTubeVideo[];
   metrics: Metric[];
 }
 

@@ -34,12 +34,13 @@ class PostOut(PostBase, IDTimestamps):
 
 
 class PostMetricsResult(BaseModel):
-    likes: int
-    comments: int
+    likes: int | None
+    comments: int | None
     views: int | None = None
     engagement_rate: float | None = None  # by followers
     engagement_rate_reach: float | None = None  # by views (video/reel)
     followers: int | None = None
+    subscribers: int | None = None
     posted_at: datetime | None = None  # extracted from Instagram
     shares_available: bool = False  # Instagram doesn't expose shares/reposts
     metrics: list[MetricOut]

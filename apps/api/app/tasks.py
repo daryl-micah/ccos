@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.config import settings
 from app.models import CampaignInfluencer, Influencer
-from app.services import instagram
+from app.services import instagram, youtube
 from app.services.metric_engine import recompute_for_ci
 from app.worker import celery_app
 
@@ -51,6 +51,41 @@ async def _collect_all_instagram() -> dict:
     return {"synced": synced, "failed": failed}
 
 
+async def _collect_all_youtube() -> dict:
+    engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+    session = async_sessionmaker(engine, expire_on_commit=False)
+    synced = failed = 0
+    try:
+        async with session() as db:
+            influencers = list(
+                await db.scalars(
+                    select(Influencer).where(
+                        Influencer.deleted_at.is_(None),
+                        (
+                            Influencer.youtube_channel_id.is_not(None)
+                            | Influencer.youtube_channel.is_not(None)
+                        ),
+                    )
+                )
+            )
+            for inf in influencers:
+                identifier = inf.youtube_channel_id or inf.youtube_channel
+                if not identifier:
+                    continue
+                try:
+                    channel = await youtube.fetch_channel(
+                        identifier, settings.youtube_recent_video_limit
+                    )
+                    await youtube.store_channel_metrics(db, inf, channel)
+                    synced += 1
+                except youtube.YouTubeError:
+                    failed += 1
+            await db.commit()
+    finally:
+        await engine.dispose()
+    return {"synced": synced, "failed": failed}
+
+
 async def _recompute_all_metrics() -> dict:
     engine = create_async_engine(settings.database_url, pool_pre_ping=True)
     session = async_sessionmaker(engine, expire_on_commit=False)
@@ -76,6 +111,12 @@ async def _recompute_all_metrics() -> dict:
 def collect_all_instagram() -> dict:
     """Daily: snapshot every influencer's Instagram stats."""
     return _run(_collect_all_instagram())
+
+
+@celery_app.task(name="app.tasks.collect_all_youtube")
+def collect_all_youtube() -> dict:
+    """Daily: snapshot every influencer's YouTube stats."""
+    return _run(_collect_all_youtube())
 
 
 @celery_app.task(name="app.tasks.recompute_all_metrics")

@@ -29,4 +29,8 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.collect_all_instagram",
         "schedule": crontab(hour=3, minute=0),
     },
+    "daily-youtube-snapshot": {
+        "task": "app.tasks.collect_all_youtube",
+        "schedule": crontab(hour=4, minute=0),
+    },
 }

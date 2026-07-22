@@ -8,9 +8,9 @@ from app.core.auth import Tenant, get_tenant
 from app.core.database import get_db
 from app.crud import CRUD
 from app.models import CampaignInfluencer, Deliverable, Post
-from app.models.enums import DeliverableStatus
+from app.models.enums import DeliverableStatus, Platform
 from app.schemas.post import PostCreate, PostMetricsResult, PostOut, PostUpdate
-from app.services import instagram, metric_engine
+from app.services import instagram, metric_engine, youtube
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 crud = CRUD(Post)
@@ -38,16 +38,24 @@ async def sync_post_metrics(
     db: AsyncSession = Depends(get_db),
     tenant: Tenant = Depends(get_tenant),
 ):
-    """Fetch a live post's stats (likes, comments, views, ER%) from Instagram."""
+    """Fetch a live post's stats (likes, comments, views, ER%) by platform."""
     post = await crud.get(db, post_id, org_id=tenant.org_id)
     if post is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Post not found")
-    if post.platform != "instagram":
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            "Automatic metrics are only available for Instagram posts.",
-        )
 
+    if post.platform == Platform.INSTAGRAM:
+        return await _sync_instagram_post_metrics(db, post, tenant.org_id)
+    if post.platform == Platform.YOUTUBE:
+        return await _sync_youtube_post_metrics(db, post, tenant.org_id)
+    raise HTTPException(
+        status.HTTP_400_BAD_REQUEST,
+        "Automatic metrics are only available for Instagram and YouTube posts.",
+    )
+
+
+async def _sync_instagram_post_metrics(
+    db: AsyncSession, post: Post, org_id: str
+) -> PostMetricsResult:
     try:
         stats = await asyncio.to_thread(instagram.fetch_post, post.url)
     except instagram.NotConnectedError as exc:
@@ -56,15 +64,12 @@ async def sync_post_metrics(
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
 
     rows, followers = await instagram.store_post_metrics(db, post, stats)
-    # Use Instagram's real publish time instead of manual entry.
     if stats.posted_at is not None:
         post.posted_at = stats.posted_at
         await db.flush()
     await _mark_deliverable_posted(db, post)
 
-    # Derive both engagement rates separately so any manually-entered shares
-    # are folded in (Instagram's API omits shares).
-    er = await metric_engine.recompute_post_engagement(db, post.id, tenant.org_id)
+    er = await metric_engine.recompute_post_engagement(db, post.id, org_id)
     er_followers = er.get("engagement_rate")
     er_reach = er.get("engagement_rate_reach")
 
@@ -75,6 +80,41 @@ async def sync_post_metrics(
         engagement_rate=float(er_followers.metric_value) if er_followers else None,
         engagement_rate_reach=float(er_reach.metric_value) if er_reach else None,
         followers=int(followers) if followers else None,
+        subscribers=None,
+        posted_at=post.posted_at,
+        shares_available=False,
+        metrics=rows + list(er.values()),
+    )
+
+
+async def _sync_youtube_post_metrics(
+    db: AsyncSession, post: Post, org_id: str
+) -> PostMetricsResult:
+    try:
+        stats = await youtube.fetch_video(post.url)
+    except youtube.NotConfiguredError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except youtube.YouTubeError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+
+    rows, subscribers = await youtube.store_post_metrics(db, post, stats)
+    if stats.published_at is not None:
+        post.posted_at = stats.published_at
+        await db.flush()
+    await _mark_deliverable_posted(db, post)
+
+    er = await metric_engine.recompute_post_engagement(db, post.id, org_id)
+    er_subscribers = er.get("engagement_rate")
+    er_reach = er.get("engagement_rate_reach")
+
+    return PostMetricsResult(
+        likes=stats.likes,
+        comments=stats.comments,
+        views=stats.views,
+        engagement_rate=float(er_subscribers.metric_value) if er_subscribers else None,
+        engagement_rate_reach=float(er_reach.metric_value) if er_reach else None,
+        followers=None,
+        subscribers=int(subscribers) if subscribers else None,
         posted_at=post.posted_at,
         shares_available=False,
         metrics=rows + list(er.values()),
