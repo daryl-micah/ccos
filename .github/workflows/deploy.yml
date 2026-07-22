@@ -7,8 +7,7 @@ name: Deploy
 #                            web build (not sensitive, but kept as a secret to
 #                            avoid hardcoding it here)
 #
-# ubuntu-latest ships the Heroku CLI preinstalled; HEROKU_API_KEY in the
-# environment authenticates it non-interactively.
+# HEROKU_API_KEY in the environment authenticates the CLI non-interactively.
 on:
   push:
     branches: [main]
@@ -21,6 +20,8 @@ jobs:
       HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh
       - name: Push and release ccos-api
         working-directory: apps/api
         run: |
@@ -34,6 +35,8 @@ jobs:
       HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh
       - name: Push and release ccos-web
         working-directory: apps/web
         # --context-path is relative to this working-directory: the web
