@@ -1,7 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
 
 from app.schemas.instagram import InstagramStatus
 from app.services import instagram
+from app.tasks import collect_all_instagram
 
 router = APIRouter(prefix="/instagram", tags=["instagram"])
 
@@ -12,9 +13,7 @@ async def instagram_status():
 
 
 @router.post("/collect-now")
-async def collect_now():
-    """Queue a snapshot of every influencer's Instagram stats (needs a worker)."""
-    from app.worker import celery_app
-
-    result = celery_app.send_task("app.tasks.collect_all_instagram")
-    return {"task_id": result.id, "status": "queued"}
+async def collect_now(background_tasks: BackgroundTasks):
+    """Snapshot every influencer's Instagram stats in the background."""
+    background_tasks.add_task(collect_all_instagram)
+    return {"status": "started"}

@@ -17,24 +17,12 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7
-    restart: unless-stopped
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   api:
     build:
       context: ./apps/api
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+asyncpg://ccos:ccos@postgres:5432/ccos
-      REDIS_URL: redis://redis:6379/0
       # Requests now go same-origin through the Next BFF, so CORS is effectively
       # unused; kept correct as belt-and-suspenders.
       CORS_ORIGINS: https://ccos.darylmicah.me
@@ -43,8 +31,6 @@ services:
       - "8000"
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
 
   web:
@@ -87,34 +73,7 @@ services:
     depends_on:
       - web
 
-  worker:
-    build:
-      context: ./apps/api
-    restart: unless-stopped
-    command: uv run celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
-    environment:
-      DATABASE_URL: postgresql+asyncpg://ccos:ccos@postgres:5432/ccos
-      REDIS_URL: redis://redis:6379/0
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  beat:
-    build:
-      context: ./apps/api
-    restart: unless-stopped
-    command: uv run celery -A app.worker.celery_app beat --loglevel=info
-    environment:
-      DATABASE_URL: postgresql+asyncpg://ccos:ccos@postgres:5432/ccos
-      REDIS_URL: redis://redis:6379/0
-    depends_on:
-      redis:
-        condition: service_healthy
-
 volumes:
   postgres-data:
-  redis-data:
   caddy-data:
   caddy-config:

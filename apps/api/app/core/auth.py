@@ -95,16 +95,22 @@ async def get_tenant(claims: dict[str, Any] = Depends(get_current_claims)) -> Te
     """FastAPI dependency: the caller's user id and active organization.
 
     Users are forced into an org right after sign-up (no personal ungrouped
-    mode — see PRODUCT.md), so a verified session without ``org_id`` means
+    mode — see PRODUCT.md), so a verified session without an active org means
     the frontend let a request through before onboarding finished. Reject
     rather than silently proceeding without a tenant.
+
+    Clerk's default session token (v2, since April 2025) nests organization
+    data under a short "o" claim (``o.id``/``o.rol``) instead of the old
+    top-level ``org_id``/``org_role``; fall back to the old shape too in case
+    a JWT template overrides this.
     """
-    org_id = claims.get("org_id")
+    org = claims.get("o") or {}
+    org_id = org.get("id") or claims.get("org_id")
     if not org_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "No active organization")
 
     return Tenant(
         user_id=claims["sub"],
         org_id=org_id,
-        org_role=claims.get("org_role", ""),
+        org_role=org.get("rol") or claims.get("org_role", ""),
     )

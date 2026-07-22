@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,7 +13,17 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
 
     database_url: str = "postgresql+asyncpg://ccos:ccos@localhost:5433/ccos"
-    redis_url: str = "redis://localhost:6379/0"
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_asyncpg_driver(cls, v: str) -> str:
+        # Heroku Postgres sets DATABASE_URL with the plain postgres:// (or
+        # postgresql://) scheme; SQLAlchemy's async engine needs the asyncpg
+        # driver named explicitly.
+        for scheme in ("postgres://", "postgresql://"):
+            if v.startswith(scheme):
+                return "postgresql+asyncpg://" + v[len(scheme):]
+        return v
 
     # Instagram (Phase 3). A single shared/server-side account authenticates all
     # collection. Username/password is tried first; if that login fails (2FA,
@@ -54,6 +64,12 @@ class Settings(BaseSettings):
     def sync_database_url(self) -> str:
         """Sync URL (psycopg/psycopg2 style) for tooling that needs it."""
         return self.database_url.replace("+asyncpg", "")
+
+    @property
+    def db_connect_args(self) -> dict:
+        """asyncpg connect kwargs. Heroku Postgres requires SSL; local Docker
+        Postgres doesn't support it."""
+        return {"ssl": "require"} if self.env == "production" else {}
 
 
 @lru_cache

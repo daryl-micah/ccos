@@ -1,7 +1,11 @@
-"""Celery tasks. Each wraps async service code with a fresh engine/session
-so it runs safely inside a sync worker (its own event loop)."""
+"""Background jobs: Instagram/YouTube snapshot sync and derived-metric
+recompute.
 
-import asyncio
+No task queue — these run in-process. ``collect_all_instagram`` is invoked via
+FastAPI ``BackgroundTasks`` from the "Sync Now" button
+(app/api/routes/instagram.py) and all jobs are invocable from the command
+line (app/cli.py) for Heroku Scheduler's daily run.
+"""
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -10,19 +14,17 @@ from app.core.config import settings
 from app.models import CampaignInfluencer, Influencer
 from app.services import instagram, youtube
 from app.services.metric_engine import recompute_for_ci
-from app.worker import celery_app
-
-
-def _run(coro):
-    return asyncio.run(coro)
 
 
 def _normalize_handle(username: str | None) -> str:
     return (username or "").lstrip("@").strip("/").split("/")[-1]
 
 
-async def _collect_all_instagram() -> dict:
-    engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+async def collect_all_instagram() -> dict:
+    """Snapshot every influencer's Instagram stats."""
+    engine = create_async_engine(
+        settings.database_url, pool_pre_ping=True, connect_args=settings.db_connect_args
+    )
     session = async_sessionmaker(engine, expire_on_commit=False)
     synced = failed = 0
     try:
@@ -52,8 +54,11 @@ async def _collect_all_instagram() -> dict:
     return {"synced": synced, "failed": failed}
 
 
-async def _collect_all_youtube() -> dict:
-    engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+async def collect_all_youtube() -> dict:
+    """Snapshot every influencer's YouTube stats."""
+    engine = create_async_engine(
+        settings.database_url, pool_pre_ping=True, connect_args=settings.db_connect_args
+    )
     session = async_sessionmaker(engine, expire_on_commit=False)
     synced = failed = 0
     try:
@@ -88,8 +93,11 @@ async def _collect_all_youtube() -> dict:
     return {"synced": synced, "failed": failed}
 
 
-async def _recompute_all_metrics() -> dict:
-    engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+async def recompute_all_metrics() -> dict:
+    """Recompute derived KPIs for every campaign-influencer."""
+    engine = create_async_engine(
+        settings.database_url, pool_pre_ping=True, connect_args=settings.db_connect_args
+    )
     session = async_sessionmaker(engine, expire_on_commit=False)
     updated = 0
     try:
@@ -107,21 +115,3 @@ async def _recompute_all_metrics() -> dict:
     finally:
         await engine.dispose()
     return {"updated": updated}
-
-
-@celery_app.task(name="app.tasks.collect_all_instagram")
-def collect_all_instagram() -> dict:
-    """Daily: snapshot every influencer's Instagram stats."""
-    return _run(_collect_all_instagram())
-
-
-@celery_app.task(name="app.tasks.collect_all_youtube")
-def collect_all_youtube() -> dict:
-    """Daily: snapshot every influencer's YouTube stats."""
-    return _run(_collect_all_youtube())
-
-
-@celery_app.task(name="app.tasks.recompute_all_metrics")
-def recompute_all_metrics() -> dict:
-    """Recompute derived KPIs for every campaign-influencer."""
-    return _run(_recompute_all_metrics())
