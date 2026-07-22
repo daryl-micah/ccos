@@ -16,6 +16,9 @@ class Influencer(Base, UUIDMixin, OrgScopedMixin, TimestampMixin, SoftDeleteMixi
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     instagram_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
     youtube_channel: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    youtube_channel_id: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )
     city: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     country: Mapped[str | None] = mapped_column(String(128), nullable=True)
     category: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)

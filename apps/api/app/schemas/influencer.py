@@ -7,6 +7,7 @@ class InfluencerBase(BaseModel):
     name: str
     instagram_username: str | None = None
     youtube_channel: str | None = None
+    youtube_channel_id: str | None = None
     city: str | None = None
     country: str | None = None
     category: str | None = None
@@ -25,6 +26,7 @@ class InfluencerUpdate(BaseModel):
     name: str | None = None
     instagram_username: str | None = None
     youtube_channel: str | None = None
+    youtube_channel_id: str | None = None
     city: str | None = None
     country: str | None = None
     category: str | None = None

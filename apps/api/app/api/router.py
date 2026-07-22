@@ -13,6 +13,7 @@ from app.api.routes import (
     metrics,
     posts,
     reports,
+    youtube,
 )
 from app.core.auth import get_tenant
 
@@ -31,4 +32,5 @@ api_router.include_router(metrics.router)
 api_router.include_router(reports.router)
 api_router.include_router(analytics.router)
 api_router.include_router(instagram.router)
+api_router.include_router(youtube.router)
 api_router.include_router(ai.router)

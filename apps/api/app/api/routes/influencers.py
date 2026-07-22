@@ -14,7 +14,8 @@ from app.models import Influencer, Metric
 from app.schemas.influencer import InfluencerCreate, InfluencerOut, InfluencerUpdate
 from app.schemas.instagram import InstagramPostOut, InstagramSyncResult
 from app.schemas.trends import TrendPoint
-from app.services import instagram
+from app.schemas.youtube import YouTubeSyncResult, YouTubeVideoOut
+from app.services import instagram, youtube
 
 router = APIRouter(prefix="/influencers", tags=["influencers"])
 crud = CRUD(Influencer)
@@ -24,6 +25,7 @@ crud = CRUD(Influencer)
 async def influencer_trends(
     influencer_id: uuid.UUID,
     days: int = Query(180, ge=1, le=1095),
+    source: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     tenant: Tenant = Depends(get_tenant),
 ):
@@ -33,14 +35,18 @@ async def influencer_trends(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Influencer not found")
 
     since = func.now() - timedelta(days=days)
-    rows = await db.scalars(
-        select(Metric)
-        .where(
+    where = [
             Metric.influencer_id == influencer_id,
             Metric.org_id == tenant.org_id,
             Metric.deleted_at.is_(None),
             Metric.captured_at >= since,
-        )
+    ]
+    if source:
+        where.append(Metric.source == source)
+
+    rows = await db.scalars(
+        select(Metric)
+        .where(*where)
         .order_by(Metric.captured_at)
     )
     series: dict[str, list[TrendPoint]] = defaultdict(list)
@@ -102,6 +108,62 @@ async def sync_instagram(
                 url=p.url,
             )
             for p in instagram.top_posts(profile)
+        ],
+        metrics=metrics,
+    )
+
+
+@router.post("/{influencer_id}/sync-youtube", response_model=YouTubeSyncResult)
+async def sync_youtube(
+    influencer_id: uuid.UUID,
+    max_videos: int = Query(youtube.DEFAULT_MAX_VIDEOS, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
+):
+    """Collect YouTube channel + recent-video stats and store a snapshot."""
+    inf = await crud.get(db, influencer_id, org_id=tenant.org_id)
+    if inf is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Influencer not found")
+    if not inf.youtube_channel and not inf.youtube_channel_id:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "This influencer has no youtube_channel set.",
+        )
+
+    identifier = inf.youtube_channel_id or inf.youtube_channel
+    try:
+        channel = await youtube.fetch_channel(identifier, max_videos)
+    except youtube.NotConfiguredError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except youtube.YouTubeError as exc:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
+
+    metrics, computed = await youtube.store_channel_metrics(db, inf, channel)
+
+    return YouTubeSyncResult(
+        channel_id=channel.channel_id,
+        title=channel.title,
+        handle=channel.handle,
+        subscribers=channel.subscribers,
+        total_views=channel.total_views,
+        video_count=channel.video_count,
+        avg_views=computed["avg_views"],
+        avg_likes=computed.get("avg_likes"),
+        avg_comments=computed.get("avg_comments"),
+        engagement_rate=computed.get("engagement_rate"),
+        engagement_rate_reach=computed.get("engagement_rate_reach"),
+        upload_frequency=computed["upload_frequency"],
+        top_videos=[
+            YouTubeVideoOut(
+                video_id=v.video_id,
+                title=v.title,
+                url=v.url,
+                published_at=v.published_at,
+                views=v.views,
+                likes=v.likes,
+                comments=v.comments,
+            )
+            for v in youtube.top_videos(channel)
         ],
         metrics=metrics,
     )

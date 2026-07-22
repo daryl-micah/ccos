@@ -58,7 +58,7 @@ export function InfluencerForm({
           <Input name="instagram_username" placeholder="anita.r" />
         </Field>
         <Field label="YouTube channel">
-          <Input name="youtube_channel" placeholder="AnitaVlogs" />
+          <Input name="youtube_channel" placeholder="@AnitaVlogs or UC..." />
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -85,11 +85,11 @@ export function InfluencerForm({
           <Input name="email" type="email" placeholder="anita@example.com" />
         </Field>
         <Field label="Phone">
-          <Input name="phone" placeholder="+91…" />
+          <Input name="phone" placeholder="+91..." />
         </Field>
       </div>
       <Field label="Notes">
-        <Textarea name="notes" placeholder="Context about this creator…" />
+        <Textarea name="notes" placeholder="Context about this creator..." />
       </Field>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

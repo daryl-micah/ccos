@@ -6,10 +6,11 @@ Usage:  uv run python -m app.cli <job-name>
 import asyncio
 import sys
 
-from app.tasks import collect_all_instagram, recompute_all_metrics
+from app.tasks import collect_all_instagram, collect_all_youtube, recompute_all_metrics
 
 JOBS = {
     "snapshot": collect_all_instagram,
+    "youtube-snapshot": collect_all_youtube,
     "recompute-metrics": recompute_all_metrics,
 }
 

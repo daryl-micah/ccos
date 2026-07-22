@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     instagram_sessionid: str = ""
     instagram_session_dir: str = "instagram_sessions"
 
+    # YouTube collector (Phase 4). Uses a server-side YouTube Data API v3 key
+    # for public channel and video statistics; no creator OAuth in v1.
+    youtube_api_key: str = ""
+    youtube_recent_video_limit: int = 30
+
     # AI layer (Phase 8) — powered by Groq. Leave the key blank to disable.
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"

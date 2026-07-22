@@ -144,7 +144,9 @@ export default function CreatorDetailPage({
     setPostSyncError(null);
     try {
       const res = await api.posts.syncMetrics(postId);
-      // Replace this post's Instagram metrics (and the recomputed engagement
+      const post = posts.find((p) => p.id === postId);
+      const collectorSource = post?.platform === "youtube" ? "youtube" : "instagram";
+      // Replace this post's provider metrics (and the recomputed engagement
       // rates it returns); manual entries stay.
       const supersededByName = new Set([
         "engagement_rate",
@@ -155,12 +157,12 @@ export default function CreatorDetailPage({
           (m) =>
             !(
               m.post_id === postId &&
-              (m.source === "instagram" || supersededByName.has(m.metric_name))
+              (m.source === collectorSource || supersededByName.has(m.metric_name))
             ),
         ),
         ...res.metrics,
       ]);
-      // Reflect the real publish date extracted from Instagram.
+      // Reflect the real publish date extracted from the provider.
       if (res.posted_at) {
         setPosts((prev) =>
           prev.map((p) =>
@@ -171,7 +173,7 @@ export default function CreatorDetailPage({
     } catch (err) {
       setPostSyncError(
         err instanceof ApiError && err.status === 409
-          ? "Connect Instagram (on the influencer's page) to fetch post metrics."
+          ? "Configure the selected platform before fetching post metrics."
           : err instanceof ApiError
             ? err.message
             : "Could not fetch post metrics.",
@@ -306,9 +308,9 @@ export default function CreatorDetailPage({
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-xs text-muted-foreground">
-              Instagram posts auto-fetch likes, comments, views & engagement on
-              add — or hit sync. Shares & reposts aren&apos;t exposed by
-              Instagram&apos;s API.
+              Instagram and YouTube posts auto-fetch available likes, comments,
+              views and engagement on add — or hit sync. Shares & reposts
+              aren&apos;t exposed by these APIs.
             </p>
             {postSyncError ? (
               <p className="text-sm text-destructive">{postSyncError}</p>
@@ -370,14 +372,17 @@ export default function CreatorDetailPage({
                       })}
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          {post.platform === "instagram" ? (
+                          {post.platform === "instagram" ||
+                          post.platform === "youtube" ? (
                             <Button
                               variant="ghost"
                               size="icon"
                               onClick={() => syncPostMetrics(post.id)}
                               disabled={syncingPost === post.id}
                               aria-label="Sync post metrics"
-                              title="Fetch likes, comments & ER% from Instagram"
+                              title={`Fetch likes, comments & ER% from ${titleCase(
+                                post.platform,
+                              )}`}
                             >
                               <RefreshCw
                                 className={
@@ -443,7 +448,9 @@ export default function CreatorDetailPage({
           onCreated={(p) => {
             setPosts((prev) => [...prev, p]);
             setShowPost(false);
-            if (p.platform === "instagram") syncPostMetrics(p.id);
+            if (p.platform === "instagram" || p.platform === "youtube") {
+              syncPostMetrics(p.id);
+            }
           }}
         />
       </Modal>

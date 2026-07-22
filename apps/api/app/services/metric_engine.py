@@ -21,7 +21,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import CampaignInfluencer, Metric, Post
-from app.models.enums import MetricSource
+from app.models.enums import MetricSource, Platform
 
 DERIVED_NAMES = ["engagement_rate", "cpv", "cpm", "cpa", "roas"]
 
@@ -114,15 +114,15 @@ async def recompute_post_engagement(
         if post
         else None
     )
-    followers = (
-        await _latest_influencer_followers(db, ci.influencer_id, org_id)
-        if ci
+    profile_denominator = (
+        await _latest_post_profile_denominator(db, post, ci.influencer_id, org_id)
+        if post and ci
         else None
     )
 
     # Each rate and the denominator it divides total engagement by.
     denominators = {
-        "engagement_rate": followers,
+        "engagement_rate": profile_denominator,
         "engagement_rate_reach": latest("views"),
     }
 
@@ -181,6 +181,40 @@ async def _latest_influencer_followers(
     return float(row.metric_value) if row is not None else None
 
 
+async def _latest_influencer_metric(
+    db: AsyncSession,
+    influencer_id: uuid.UUID,
+    org_id: str,
+    metric_name: str,
+    source: MetricSource,
+) -> float | None:
+    row = await db.scalar(
+        select(Metric)
+        .where(
+            Metric.influencer_id == influencer_id,
+            Metric.org_id == org_id,
+            Metric.metric_name == metric_name,
+            Metric.source == source,
+            Metric.deleted_at.is_(None),
+        )
+        .order_by(Metric.captured_at.desc())
+        .limit(1)
+    )
+    return float(row.metric_value) if row is not None else None
+
+
+async def _latest_post_profile_denominator(
+    db: AsyncSession, post: Post, influencer_id: uuid.UUID, org_id: str
+) -> float | None:
+    if post.platform == Platform.YOUTUBE:
+        return await _latest_influencer_metric(
+            db, influencer_id, org_id, "subscribers", MetricSource.YOUTUBE
+        )
+    return await _latest_influencer_metric(
+        db, influencer_id, org_id, "followers", MetricSource.INSTAGRAM
+    )
+
+
 async def recompute_for_ci(
     db: AsyncSession, ci: CampaignInfluencer, org_id: str
 ) -> list[Metric]:
@@ -220,17 +254,18 @@ async def recompute_for_ci(
 
     acquisitions = sum((total(n) or 0) for n in ACQUISITION_NAMES) or None
 
-    # Followers live on the influencer (campaign-agnostic), so they rarely
-    # appear among this CI's metrics. Fall back to the influencer's latest.
+    # Profile audience lives on the influencer (campaign-agnostic), so it
+    # rarely appears among this CI's metrics. Fall back by campaign platform:
+    # YouTube-only creators use subscribers; Instagram-only/mixed keeps the
+    # existing followers behavior where available.
     followers = latest("followers")
-    if followers is None:
-        followers = await _latest_influencer_followers(
-            db, ci.influencer_id, org_id
-        )
+    profile_audience = followers if followers is not None else latest("subscribers")
+    if profile_audience is None:
+        profile_audience = await _profile_audience_for_ci(db, ci, org_id)
 
     computed = compute_derived(
         cost=float(ci.cost) if ci.cost is not None else None,
-        followers=followers,
+        followers=profile_audience,
         avg_likes=_mean(values("likes")),
         avg_comments=_mean(values("comments")),
         avg_shares=_mean(values("shares")),
@@ -291,6 +326,32 @@ async def recompute_for_ci_id(
     if ci is None:
         return None
     return await recompute_for_ci(db, ci, org_id)
+
+
+async def _profile_audience_for_ci(
+    db: AsyncSession, ci: CampaignInfluencer, org_id: str
+) -> float | None:
+    platforms = set(
+        await db.scalars(
+            select(Post.platform).where(
+                Post.campaign_influencer_id == ci.id,
+                Post.org_id == org_id,
+                Post.deleted_at.is_(None),
+            )
+        )
+    )
+    if platforms == {Platform.YOUTUBE}:
+        return await _latest_influencer_metric(
+            db, ci.influencer_id, org_id, "subscribers", MetricSource.YOUTUBE
+        )
+    followers = await _latest_influencer_metric(
+        db, ci.influencer_id, org_id, "followers", MetricSource.INSTAGRAM
+    )
+    if followers is not None:
+        return followers
+    return await _latest_influencer_metric(
+        db, ci.influencer_id, org_id, "subscribers", MetricSource.YOUTUBE
+    )
 
 
 async def recompute_for_campaign(

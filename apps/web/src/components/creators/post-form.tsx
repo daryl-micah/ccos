@@ -61,7 +61,7 @@ export function PostForm({
         <Input
           name="url"
           required
-          placeholder="https://instagram.com/reel/…"
+          placeholder="https://instagram.com/reel/... or https://youtu.be/..."
         />
       </div>
       <div className="space-y-1.5">
@@ -74,7 +74,8 @@ export function PostForm({
           ))}
         </Select>
         <p className="text-xs text-muted-foreground">
-          For Instagram, the post date and metrics are fetched automatically.
+          Instagram and YouTube post dates and available metrics are fetched
+          automatically.
         </p>
       </div>
       <div className="space-y-1.5">
