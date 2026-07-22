@@ -15,6 +15,7 @@ const FIELDS: {
   decimals?: boolean;
 }[] = [
   { name: "subscribers", label: "Subscribers" },
+  { name: "total_views", label: "Total views" },
   { name: "avg_views", label: "Avg views" },
   { name: "avg_likes", label: "Avg likes" },
   { name: "avg_comments", label: "Avg comments" },

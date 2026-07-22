@@ -138,8 +138,7 @@ async def sync_youtube(
     except youtube.YouTubeError as exc:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, str(exc)) from exc
 
-    metrics = await youtube.store_channel_metrics(db, inf, channel)
-    computed = youtube.compute_channel_metrics(channel)
+    metrics, computed = await youtube.store_channel_metrics(db, inf, channel)
 
     return YouTubeSyncResult(
         channel_id=channel.channel_id,

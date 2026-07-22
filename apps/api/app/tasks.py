@@ -42,10 +42,11 @@ async def _collect_all_instagram() -> dict:
                 try:
                     profile = instagram.fetch_profile(handle)
                     await instagram.store_profile_metrics(db, inf, profile)
+                    await db.commit()
                     synced += 1
                 except instagram.InstagramError:
+                    await db.rollback()
                     failed += 1
-            await db.commit()
     finally:
         await engine.dispose()
     return {"synced": synced, "failed": failed}
@@ -77,10 +78,11 @@ async def _collect_all_youtube() -> dict:
                         identifier, settings.youtube_recent_video_limit
                     )
                     await youtube.store_channel_metrics(db, inf, channel)
+                    await db.commit()
                     synced += 1
                 except youtube.YouTubeError:
+                    await db.rollback()
                     failed += 1
-            await db.commit()
     finally:
         await engine.dispose()
     return {"synced": synced, "failed": failed}

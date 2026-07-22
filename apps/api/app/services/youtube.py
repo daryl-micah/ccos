@@ -309,7 +309,7 @@ def top_videos(channel: YouTubeChannel, limit: int = 3) -> list[YouTubeVideo]:
 
 async def store_channel_metrics(
     db: AsyncSession, influencer: Influencer, channel: YouTubeChannel
-) -> list[Metric]:
+) -> tuple[list[Metric], dict[str, float]]:
     computed = compute_channel_metrics(channel)
     influencer.youtube_channel_id = channel.channel_id
     rows: list[Metric] = []
@@ -326,7 +326,7 @@ async def store_channel_metrics(
     await db.flush()
     for row in rows:
         await db.refresh(row)
-    return rows
+    return rows, computed
 
 
 async def _latest_subscribers(db: AsyncSession, influencer_id, org_id: str) -> float | None:
