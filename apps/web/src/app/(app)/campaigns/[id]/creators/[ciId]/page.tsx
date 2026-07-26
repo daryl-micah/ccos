@@ -22,7 +22,7 @@ import type {
   Post,
 } from "@/lib/types";
 import { ciStatusVariant, titleCase } from "@/lib/status";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, isOverdue } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -280,15 +280,25 @@ export default function CreatorDetailPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {deliverables.map((d) => (
+                  {deliverables.map((d) => {
+                    const overdue = isOverdue(d.due_date, d.status);
+                    return (
                     <TableRow key={d.id}>
                       <TableCell className="font-medium">
                         {titleCase(d.type)}
                       </TableCell>
                       <TableCell>{d.quantity}</TableCell>
-                      <TableCell>{formatDate(d.due_date)}</TableCell>
+                      <TableCell
+                        className={overdue ? "font-medium text-red-700" : undefined}
+                      >
+                        {formatDate(d.due_date)}
+                      </TableCell>
                       <TableCell>
-                        <Badge variant="muted">{titleCase(d.status)}</Badge>
+                        {overdue ? (
+                          <Badge variant="destructive">Overdue</Badge>
+                        ) : (
+                          <Badge variant="muted">{titleCase(d.status)}</Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
@@ -301,7 +311,8 @@ export default function CreatorDetailPage({
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}

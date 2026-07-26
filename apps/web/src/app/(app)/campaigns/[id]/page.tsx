@@ -5,9 +5,17 @@ import { use } from "react";
 import Link from "next/link";
 import { ArrowLeft, Download, Plus, Pencil, Trash2, ExternalLink, Upload } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import type { Agency, Campaign, CampaignInfluencer, Influencer, Metric, Post } from "@/lib/types";
+import type {
+  Agency,
+  Campaign,
+  CampaignInfluencer,
+  Deliverable,
+  Influencer,
+  Metric,
+  Post,
+} from "@/lib/types";
 import { campaignStatusVariant, ciStatusVariant, titleCase } from "@/lib/status";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, isOverdue } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +45,7 @@ export default function CampaignDetailPage({
   const [influencers, setInfluencers] = React.useState<Influencer[]>([]);
   const [agencies, setAgencies] = React.useState<Agency[]>([]);
   const [posts, setPosts] = React.useState<Post[]>([]);
+  const [deliverables, setDeliverables] = React.useState<Deliverable[]>([]);
   const [metrics, setMetrics] = React.useState<Metric[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -60,12 +69,20 @@ export default function CampaignDetailPage({
         setInfluencers(allInf);
         setAgencies(allAgencies);
 
-        // Fetch posts and metrics for all campaign influencers
+        // Fetch posts, deliverables and metrics for all campaign influencers
         if (l.length > 0) {
-          const [allPosts, allMetricsByCi] = await Promise.all([
+          const [allPosts, allDeliverables, allMetricsByCi] = await Promise.all([
             Promise.all(
               l.map((link) =>
                 api.posts.list({ campaign_influencer_id: link.id, limit: 500 })
+              )
+            ),
+            Promise.all(
+              l.map((link) =>
+                api.deliverables.list({
+                  campaign_influencer_id: link.id,
+                  limit: 500,
+                })
               )
             ),
             Promise.all(
@@ -74,10 +91,9 @@ export default function CampaignDetailPage({
               )
             ),
           ]);
-          const flatPosts = allPosts.flat();
-          setPosts(flatPosts);
-          const flatMetrics = allMetricsByCi.flat();
-          setMetrics(flatMetrics);
+          setPosts(allPosts.flat());
+          setDeliverables(allDeliverables.flat());
+          setMetrics(allMetricsByCi.flat());
         }
       } catch (err) {
         setError(
@@ -120,6 +136,11 @@ export default function CampaignDetailPage({
   }, [influencers, links]);
 
   const totalSpend = links.reduce((sum, l) => sum + Number(l.cost ?? 0), 0);
+  const budget = Number(campaign?.budget ?? 0);
+  const overBudget = budget > 0 && totalSpend > budget;
+  const overdueCount = deliverables.filter((d) =>
+    isOverdue(d.due_date, d.status),
+  ).length;
 
   // Roll up each creator's metrics for the table. Post-scoped metrics (from a
   // synced reel) count toward the creator: counts sum across their posts,
@@ -261,6 +282,22 @@ export default function CampaignDetailPage({
           <ArrowLeft className="size-4" /> All campaigns
         </Link>
 
+        {overBudget || overdueCount > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <span className="font-medium">Needs attention:</span>
+            {overBudget ? (
+              <span>
+                Over budget by {formatCurrency(totalSpend - budget)}.
+              </span>
+            ) : null}
+            {overdueCount > 0 ? (
+              <span>
+                {overdueCount} deliverable{overdueCount === 1 ? "" : "s"} overdue.
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <Summary label="Status">
             <Badge variant={campaignStatusVariant(campaign.status)}>
@@ -269,7 +306,14 @@ export default function CampaignDetailPage({
           </Summary>
           <Summary label="Budget">{formatCurrency(campaign.budget)}</Summary>
           <Summary label="Committed spend">
-            {formatCurrency(totalSpend)}
+            <span className={overBudget ? "text-red-700" : undefined}>
+              {formatCurrency(totalSpend)}
+            </span>
+            {overBudget ? (
+              <Badge variant="destructive" className="ml-2 align-middle">
+                Over by {formatCurrency(totalSpend - budget)}
+              </Badge>
+            ) : null}
           </Summary>
           <Summary label="Creators">{String(links.length)}</Summary>
         </div>
