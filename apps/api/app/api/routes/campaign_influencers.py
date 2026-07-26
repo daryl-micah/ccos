@@ -1,19 +1,23 @@
 import uuid
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Tenant, get_tenant
 from app.core.database import get_db
 from app.crud import CRUD
-from app.models import Agency, Campaign, CampaignInfluencer, Influencer
+from app.models import Agency, Campaign, CampaignInfluencer, Influencer, Metric
+from app.models.enums import MetricSource
 from app.schemas.campaign_influencer import (
     CampaignInfluencerCreate,
     CampaignInfluencerOut,
+    CampaignInfluencerResults,
     CampaignInfluencerUpdate,
 )
 from app.schemas.metric import MetricOut
-from app.services.metric_engine import recompute_for_ci_id
+from app.services.metric_engine import recompute_for_ci, recompute_for_ci_id
 
 router = APIRouter(prefix="/campaign-influencers", tags=["campaign-influencers"])
 crud = CRUD(CampaignInfluencer)
@@ -33,6 +37,74 @@ async def recompute_metrics(
     if written is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "CampaignInfluencer not found")
     return written
+
+
+@router.put("/{ci_id}/results", response_model=list[MetricOut])
+async def set_results(
+    ci_id: uuid.UUID,
+    data: CampaignInfluencerResults,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
+):
+    """Upsert creator-level revenue & conversion metrics, then recompute KPIs.
+
+    Each provided field is stored as a single manual, CI-level metric
+    (``post_id`` null); a provided ``null`` clears it. Returns every CI-level
+    metric (manual results + freshly recomputed derived KPIs) so the client
+    can replace its creator-level state in one round trip.
+    """
+    ci = await crud.get(db, ci_id, org_id=tenant.org_id)
+    if ci is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "CampaignInfluencer not found")
+
+    provided = data.model_dump(exclude_unset=True)
+    if provided:
+        existing = list(
+            await db.scalars(
+                select(Metric).where(
+                    Metric.campaign_influencer_id == ci_id,
+                    Metric.org_id == tenant.org_id,
+                    Metric.post_id.is_(None),
+                    Metric.source == MetricSource.MANUAL,
+                    Metric.metric_name.in_(provided.keys()),
+                    Metric.deleted_at.is_(None),
+                )
+            )
+        )
+        by_name = {m.metric_name: m for m in existing}
+        for name, value in provided.items():
+            row = by_name.get(name)
+            if value is None:
+                if row is not None:
+                    await crud.remove(db, row)
+            elif row is not None:
+                row.metric_value = Decimal(str(value))
+            else:
+                db.add(
+                    Metric(
+                        campaign_influencer_id=ci_id,
+                        post_id=None,
+                        metric_name=name,
+                        metric_value=Decimal(str(value)),
+                        source=MetricSource.MANUAL,
+                        org_id=tenant.org_id,
+                    )
+                )
+        await db.flush()
+
+    # Recompute so ROAS / CPA / CPM reflect the new inputs immediately.
+    await recompute_for_ci(db, ci, tenant.org_id)
+
+    return list(
+        await db.scalars(
+            select(Metric).where(
+                Metric.campaign_influencer_id == ci_id,
+                Metric.org_id == tenant.org_id,
+                Metric.post_id.is_(None),
+                Metric.deleted_at.is_(None),
+            )
+        )
+    )
 
 
 @router.get("", response_model=list[CampaignInfluencerOut])

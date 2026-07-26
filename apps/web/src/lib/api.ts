@@ -4,6 +4,7 @@ import type {
   AIStatus,
   Campaign,
   CampaignInfluencer,
+  CampaignInfluencerResults,
   CampaignRanking,
   CreatorRanking,
   Deliverable,
@@ -159,6 +160,15 @@ export const api = {
       recomputeMetrics: (id: string) =>
         request<Metric[]>(`/campaign-influencers/${id}/recompute-metrics`, {
           method: "POST",
+        }),
+      /**
+       * Upsert creator-level revenue & conversion inputs and recompute KPIs.
+       * Returns every CI-level metric (manual results + derived) after the save.
+       */
+      setResults: (id: string, data: CampaignInfluencerResults) =>
+        request<Metric[]>(`/campaign-influencers/${id}/results`, {
+          method: "PUT",
+          body: JSON.stringify(data),
         }),
     },
   ),

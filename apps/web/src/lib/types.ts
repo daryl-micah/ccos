@@ -76,6 +76,19 @@ export interface CampaignInfluencer extends Timestamped {
   remarks: string | null;
 }
 
+/**
+ * Creator-in-campaign revenue & conversion inputs (manual, CI-level metrics).
+ * A field left `null` clears that metric; omit a field to leave it unchanged.
+ */
+export interface CampaignInfluencerResults {
+  revenue?: string | null;
+  installs?: string | null;
+  leads?: string | null;
+  bookings?: string | null;
+  purchases?: string | null;
+  impressions?: string | null;
+}
+
 export interface Deliverable extends Timestamped {
   campaign_influencer_id: string;
   type: DeliverableType;

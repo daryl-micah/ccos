@@ -40,6 +40,7 @@ import { DeliverableForm } from "@/components/creators/deliverable-form";
 import { PostForm } from "@/components/creators/post-form";
 import { PostMetricForm } from "@/components/creators/post-metric-form";
 import { DerivedKpis } from "@/components/creators/derived-kpis";
+import { ResultsForm } from "@/components/creators/results-form";
 import { EditCreatorForm } from "@/components/campaigns/edit-creator-form";
 
 export default function CreatorDetailPage({
@@ -260,6 +261,19 @@ export default function CreatorDetailPage({
                   ),
               ),
               ...calculated,
+            ]);
+          }}
+        />
+
+        <ResultsForm
+          campaignInfluencerId={ciId}
+          metrics={metrics}
+          onSaved={(ciLevel) => {
+            // Replace every CI-level (post_id null) row with the fresh set;
+            // keep post-scoped metrics untouched.
+            setMetrics((prev) => [
+              ...prev.filter((m) => m.post_id),
+              ...ciLevel,
             ]);
           }}
         />
