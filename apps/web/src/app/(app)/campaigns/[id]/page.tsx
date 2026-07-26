@@ -3,7 +3,7 @@
 import * as React from "react";
 import { use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, Plus, Pencil, Trash2, ExternalLink, RefreshCw, Upload } from "lucide-react";
+import { ArrowLeft, Download, Plus, Pencil, Trash2, ExternalLink, Upload } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import type { Agency, Campaign, CampaignInfluencer, Influencer, Metric, Post } from "@/lib/types";
 import { campaignStatusVariant, ciStatusVariant, titleCase } from "@/lib/status";
@@ -45,7 +45,6 @@ export default function CampaignDetailPage({
     null,
   );
   const [showRoster, setShowRoster] = React.useState(false);
-  const [recomputing, setRecomputing] = React.useState(false);
 
   React.useEffect(() => {
     (async () => {
@@ -216,30 +215,6 @@ export default function CampaignDetailPage({
       .metric_value;
   }
 
-  async function handleRecompute() {
-    setRecomputing(true);
-    try {
-      const recalculated = await api.campaigns.recomputeMetrics(id);
-      // Replace CI-level calculated metrics with fresh ones
-      const calculatedNames = new Set(recalculated.map((m) => m.metric_name));
-      setMetrics((prev) => [
-        ...prev.filter(
-          (m) =>
-            !(
-              m.source === "calculated" &&
-              !m.post_id &&
-              calculatedNames.has(m.metric_name)
-            ),
-        ),
-        ...recalculated,
-      ]);
-    } catch (err) {
-      console.error("Recompute failed", err);
-    } finally {
-      setRecomputing(false);
-    }
-  }
-
   async function handleRemove(linkId: string) {
     if (!confirm("Remove this creator from the campaign? (soft delete)")) return;
     await api.campaignInfluencers.remove(linkId);
@@ -327,14 +302,6 @@ export default function CampaignDetailPage({
                 onClick={() => setShowRoster(true)}
               >
                 <Upload /> Import roster
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleRecompute}
-                disabled={recomputing}
-              >
-                <RefreshCw /> {recomputing ? "Computing…" : "Recompute KPIs"}
               </Button>
               <a href={api.reports.exportCampaignCreatorsUrl(id)}>
                 <Button size="sm" variant="outline">

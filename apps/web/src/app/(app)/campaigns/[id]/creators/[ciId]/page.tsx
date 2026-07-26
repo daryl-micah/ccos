@@ -141,10 +141,20 @@ export default function CreatorDetailPage({
     setDeliverables((prev) => prev.filter((d) => d.id !== deliverableId));
   }
 
+  // Reload every metric for this creator (post-scoped + CI-level derived KPIs).
+  // The backend recomputes KPIs on each change, so a refetch is the simplest
+  // way to reflect them without mirroring the engine in the client.
+  const refreshMetrics = React.useCallback(async () => {
+    setMetrics(
+      await api.metrics.list({ campaign_influencer_id: ciId, limit: 500 }),
+    );
+  }, [ciId]);
+
   async function deletePost(postId: string) {
     if (!confirm("Delete this live post and its metrics? (soft delete)")) return;
     await api.posts.remove(postId);
     setPosts((prev) => prev.filter((p) => p.id !== postId));
+    await refreshMetrics();
   }
 
   async function syncPostMetrics(postId: string) {
@@ -152,24 +162,9 @@ export default function CreatorDetailPage({
     setPostSyncError(null);
     try {
       const res = await api.posts.syncMetrics(postId);
-      const post = posts.find((p) => p.id === postId);
-      const collectorSource = post?.platform === "youtube" ? "youtube" : "instagram";
-      // Replace this post's provider metrics (and the recomputed engagement
-      // rates it returns); manual entries stay.
-      const supersededByName = new Set([
-        "engagement_rate",
-        "engagement_rate_reach",
-      ]);
-      setMetrics((prev) => [
-        ...prev.filter(
-          (m) =>
-            !(
-              m.post_id === postId &&
-              (m.source === collectorSource || supersededByName.has(m.metric_name))
-            ),
-        ),
-        ...res.metrics,
-      ]);
+      // The sync recomputes post engagement and the creator's KPIs server-side;
+      // refetch so both the posts table and Derived KPIs reflect the new data.
+      await refreshMetrics();
       // Reflect the real publish date extracted from the provider.
       if (res.posted_at) {
         setPosts((prev) =>
@@ -245,25 +240,7 @@ export default function CreatorDetailPage({
           </p>
         ) : null}
 
-        <DerivedKpis
-          campaignInfluencerId={ciId}
-          metrics={metrics}
-          onRecomputed={(calculated) => {
-            const names = new Set(calculated.map((m) => m.metric_name));
-            setMetrics((prev) => [
-              // drop superseded CI-level calculated rows, keep everything else
-              ...prev.filter(
-                (m) =>
-                  !(
-                    m.source === "calculated" &&
-                    !m.post_id &&
-                    names.has(m.metric_name)
-                  ),
-              ),
-              ...calculated,
-            ]);
-          }}
-        />
+        <DerivedKpis metrics={metrics} />
 
         <ResultsForm
           campaignInfluencerId={ciId}
@@ -466,6 +443,8 @@ export default function CreatorDetailPage({
           onUpdated={(updated) => {
             setCi(updated);
             setShowEdit(false);
+            // cost feeds CPV/ROAS/CPM/CPA — the backend recomputed them.
+            void refreshMetrics();
           }}
         />
       </Modal>
@@ -514,14 +493,9 @@ export default function CreatorDetailPage({
             campaignInfluencerId={ciId}
             postId={metricPost.id}
             onAdded={async () => {
-              // Refetch so the server-recomputed reach-ER (which folds in
-              // manually-entered shares) is reflected, not just the new row.
-              setMetrics(
-                await api.metrics.list({
-                  campaign_influencer_id: ciId,
-                  limit: 500,
-                }),
-              );
+              // Refetch so the server-recomputed rates and creator KPIs (which
+              // fold in the new value) are reflected, not just the new row.
+              await refreshMetrics();
             }}
           />
         ) : null}

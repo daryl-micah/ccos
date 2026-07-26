@@ -2,12 +2,13 @@ import asyncio
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Tenant, get_tenant
 from app.core.database import get_db
 from app.crud import CRUD
-from app.models import CampaignInfluencer, Deliverable, Post
+from app.models import CampaignInfluencer, Deliverable, Metric, Post
 from app.models.enums import DeliverableStatus, Platform
 from app.schemas.post import PostCreate, PostMetricsResult, PostOut, PostUpdate
 from app.services import instagram, metric_engine, youtube
@@ -70,6 +71,9 @@ async def _sync_instagram_post_metrics(
     await _mark_deliverable_posted(db, post)
 
     er = await metric_engine.recompute_post_engagement(db, post.id, org_id)
+    await metric_engine.recompute_for_ci_id(
+        db, post.campaign_influencer_id, org_id
+    )
     er_followers = er.get("engagement_rate")
     er_reach = er.get("engagement_rate_reach")
 
@@ -104,6 +108,9 @@ async def _sync_youtube_post_metrics(
     await _mark_deliverable_posted(db, post)
 
     er = await metric_engine.recompute_post_engagement(db, post.id, org_id)
+    await metric_engine.recompute_for_ci_id(
+        db, post.campaign_influencer_id, org_id
+    )
     er_subscribers = er.get("engagement_rate")
     er_reach = er.get("engagement_rate_reach")
 
@@ -199,4 +206,18 @@ async def delete_post(
     obj = await crud.get(db, post_id, org_id=tenant.org_id)
     if obj is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Post not found")
+    ci_id = obj.campaign_influencer_id
+    # crud.remove() doesn't cascade from a Post, so soft-delete its metrics too;
+    # otherwise the post's views/likes would linger and skew the creator's KPIs.
+    post_metrics = await db.scalars(
+        select(Metric).where(
+            Metric.post_id == post_id,
+            Metric.org_id == tenant.org_id,
+            Metric.deleted_at.is_(None),
+        )
+    )
+    for m in post_metrics:
+        m.deleted_at = func.now()
     await crud.remove(db, obj)
+    await db.flush()
+    await metric_engine.recompute_for_ci_id(db, ci_id, tenant.org_id)

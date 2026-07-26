@@ -170,7 +170,11 @@ async def update_campaign_influencer(
         db, data.agency_id, org_id=tenant.org_id
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Agency not found")
-    return await crud.update(db, obj, data)
+    updated = await crud.update(db, obj, data)
+    # cost feeds CPV / CPM / CPA / ROAS — keep derived KPIs in step.
+    if "cost" in data.model_fields_set:
+        await recompute_for_ci(db, updated, tenant.org_id)
+    return updated
 
 
 @router.delete("/{ci_id}", status_code=status.HTTP_204_NO_CONTENT)
