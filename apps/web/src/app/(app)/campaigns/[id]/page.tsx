@@ -3,7 +3,7 @@
 import * as React from "react";
 import { use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, Plus, Trash2, ExternalLink, RefreshCw, Upload } from "lucide-react";
+import { ArrowLeft, Download, Plus, Pencil, Trash2, ExternalLink, RefreshCw, Upload } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import type { Agency, Campaign, CampaignInfluencer, Influencer, Metric, Post } from "@/lib/types";
 import { campaignStatusVariant, ciStatusVariant, titleCase } from "@/lib/status";
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/table";
 import { Modal } from "@/components/ui/modal";
 import { AddCreatorForm } from "@/components/campaigns/add-creator-form";
+import { EditCreatorForm } from "@/components/campaigns/edit-creator-form";
 import { RosterImportModal } from "@/components/campaigns/roster-import";
 
 export default function CampaignDetailPage({
@@ -40,6 +41,9 @@ export default function CampaignDetailPage({
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [showAdd, setShowAdd] = React.useState(false);
+  const [editingLink, setEditingLink] = React.useState<CampaignInfluencer | null>(
+    null,
+  );
   const [showRoster, setShowRoster] = React.useState(false);
   const [recomputing, setRecomputing] = React.useState(false);
 
@@ -403,14 +407,24 @@ export default function CampaignDetailPage({
                           );
                         })}
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemove(l.id)}
-                            aria-label="Remove creator"
-                          >
-                            <Trash2 className="text-muted-foreground" />
-                          </Button>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditingLink(l)}
+                              aria-label="Edit creator"
+                            >
+                              <Pencil className="text-muted-foreground" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleRemove(l.id)}
+                              aria-label="Remove creator"
+                            >
+                              <Trash2 className="text-muted-foreground" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -522,6 +536,26 @@ export default function CampaignDetailPage({
             setShowAdd(false);
           }}
         />
+      </Modal>
+
+      <Modal
+        open={!!editingLink}
+        onClose={() => setEditingLink(null)}
+        title="Edit creator"
+      >
+        {editingLink ? (
+          <EditCreatorForm
+            link={editingLink}
+            agencies={agencies}
+            onCancel={() => setEditingLink(null)}
+            onUpdated={(updated) => {
+              setLinks((prev) =>
+                prev.map((l) => (l.id === updated.id ? updated : l)),
+              );
+              setEditingLink(null);
+            }}
+          />
+        ) : null}
       </Modal>
 
       <RosterImportModal

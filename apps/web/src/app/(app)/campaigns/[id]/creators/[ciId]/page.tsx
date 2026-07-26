@@ -6,12 +6,14 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ExternalLink,
+  Pencil,
   Plus,
   RefreshCw,
   Trash2,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import type {
+  Agency,
   Campaign,
   CampaignInfluencer,
   Deliverable,
@@ -38,6 +40,7 @@ import { DeliverableForm } from "@/components/creators/deliverable-form";
 import { PostForm } from "@/components/creators/post-form";
 import { PostMetricForm } from "@/components/creators/post-metric-form";
 import { DerivedKpis } from "@/components/creators/derived-kpis";
+import { EditCreatorForm } from "@/components/campaigns/edit-creator-form";
 
 export default function CreatorDetailPage({
   params,
@@ -49,6 +52,8 @@ export default function CreatorDetailPage({
   const [campaign, setCampaign] = React.useState<Campaign | null>(null);
   const [ci, setCi] = React.useState<CampaignInfluencer | null>(null);
   const [influencer, setInfluencer] = React.useState<Influencer | null>(null);
+  const [agencies, setAgencies] = React.useState<Agency[]>([]);
+  const [showEdit, setShowEdit] = React.useState(false);
   const [deliverables, setDeliverables] = React.useState<Deliverable[]>([]);
   const [posts, setPosts] = React.useState<Post[]>([]);
   const [metrics, setMetrics] = React.useState<Metric[]>([]);
@@ -65,18 +70,20 @@ export default function CreatorDetailPage({
       try {
         const link = await api.campaignInfluencers.get(ciId);
         setCi(link);
-        const [c, inf, d, p, m] = await Promise.all([
+        const [c, inf, d, p, m, ag] = await Promise.all([
           api.campaigns.get(id),
           api.influencers.get(link.influencer_id),
           api.deliverables.list({ campaign_influencer_id: ciId, limit: 500 }),
           api.posts.list({ campaign_influencer_id: ciId, limit: 500 }),
           api.metrics.list({ campaign_influencer_id: ciId, limit: 500 }),
+          api.agencies.list(),
         ]);
         setCampaign(c);
         setInfluencer(inf);
         setDeliverables(d);
         setPosts(p);
         setMetrics(m);
+        setAgencies(ag);
       } catch (err) {
         setError(
           err instanceof ApiError
@@ -205,6 +212,11 @@ export default function CreatorDetailPage({
       <PageHeader
         title={influencer?.name ?? "Creator"}
         description={campaign ? `in ${campaign.name}` : undefined}
+        action={
+          <Button variant="outline" onClick={() => setShowEdit(true)}>
+            <Pencil /> Edit
+          </Button>
+        }
       />
       <div className="space-y-6 p-8">
         <Link
@@ -224,6 +236,13 @@ export default function CreatorDetailPage({
           <Summary label="Deliverables">{String(deliverables.length)}</Summary>
           <Summary label="Live posts">{String(posts.length)}</Summary>
         </div>
+
+        {ci.remarks ? (
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Remarks:</span>{" "}
+            {ci.remarks}
+          </p>
+        ) : null}
 
         <DerivedKpis
           campaignInfluencerId={ciId}
@@ -420,6 +439,22 @@ export default function CreatorDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      <Modal
+        open={showEdit}
+        onClose={() => setShowEdit(false)}
+        title="Edit creator"
+      >
+        <EditCreatorForm
+          link={ci}
+          agencies={agencies}
+          onCancel={() => setShowEdit(false)}
+          onUpdated={(updated) => {
+            setCi(updated);
+            setShowEdit(false);
+          }}
+        />
+      </Modal>
 
       <Modal
         open={showDeliverable}
