@@ -238,8 +238,16 @@ export default function CampaignDetailPage({
 
   async function handleRemove(linkId: string) {
     if (!confirm("Remove this creator from the campaign? (soft delete)")) return;
-    await api.campaignInfluencers.remove(linkId);
-    setLinks((prev) => prev.filter((l) => l.id !== linkId));
+    try {
+      await api.campaignInfluencers.remove(linkId);
+      setLinks((prev) => prev.filter((l) => l.id !== linkId));
+    } catch (err) {
+      alert(
+        err instanceof ApiError
+          ? `Could not remove creator: ${err.message}`
+          : "Could not remove creator. Please try again.",
+      );
+    }
   }
 
   if (loading) {

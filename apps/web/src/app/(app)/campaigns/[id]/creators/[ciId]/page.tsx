@@ -137,8 +137,17 @@ export default function CreatorDetailPage({
   }
 
   async function deleteDeliverable(deliverableId: string) {
-    await api.deliverables.remove(deliverableId);
-    setDeliverables((prev) => prev.filter((d) => d.id !== deliverableId));
+    if (!confirm("Delete this deliverable? (soft delete)")) return;
+    try {
+      await api.deliverables.remove(deliverableId);
+      setDeliverables((prev) => prev.filter((d) => d.id !== deliverableId));
+    } catch (err) {
+      alert(
+        err instanceof ApiError
+          ? `Could not delete deliverable: ${err.message}`
+          : "Could not delete deliverable. Please try again.",
+      );
+    }
   }
 
   // Reload every metric for this creator (post-scoped + CI-level derived KPIs).
@@ -152,9 +161,17 @@ export default function CreatorDetailPage({
 
   async function deletePost(postId: string) {
     if (!confirm("Delete this live post and its metrics? (soft delete)")) return;
-    await api.posts.remove(postId);
-    setPosts((prev) => prev.filter((p) => p.id !== postId));
-    await refreshMetrics();
+    try {
+      await api.posts.remove(postId);
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      await refreshMetrics();
+    } catch (err) {
+      alert(
+        err instanceof ApiError
+          ? `Could not delete post: ${err.message}`
+          : "Could not delete post. Please try again.",
+      );
+    }
   }
 
   async function syncPostMetrics(postId: string) {

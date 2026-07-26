@@ -98,6 +98,11 @@ export const api = {
         request<Metric[]>(`/campaigns/${id}/recompute-metrics`, {
           method: "POST",
         }),
+      /** Soft-deleted campaigns, most recently archived first. */
+      listArchived: () => request<Campaign[]>(`/campaigns/archived`),
+      /** Reverse a soft delete, restoring the campaign and its creators/posts. */
+      restore: (id: string) =>
+        request<Campaign>(`/campaigns/${id}/restore`, { method: "POST" }),
       /** Import an agency's creator list (name/contact/handle) into the campaign. */
       importRoster: async (
         campaignId: string,

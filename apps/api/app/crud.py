@@ -4,6 +4,8 @@ Soft-delete aware: list/get ignore rows with ``deleted_at`` set, and
 ``remove`` performs a soft delete (never destroys history).
 """
 
+from __future__ import annotations
+
 import uuid
 
 from pydantic import BaseModel
@@ -182,5 +184,78 @@ class CRUD[ModelT: Base]:
             cis = (await db.execute(ci_stmt)).scalars().all()
             for ci in cis:
                 ci.agency_id = None
+
+        await db.flush()
+
+    async def get_archived(
+        self, db: AsyncSession, obj_id: uuid.UUID, *, org_id: str
+    ) -> ModelT | None:
+        """Fetch a soft-deleted row (deleted_at set) — for restore."""
+        result = await db.execute(
+            select(self.model).where(
+                self.model.id == obj_id,
+                self.model.org_id == org_id,
+                self.model.deleted_at.is_not(None),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def list_archived(
+        self, db: AsyncSession, *, org_id: str, skip: int = 0, limit: int = 100
+    ) -> list[ModelT]:
+        """List soft-deleted rows, most recently archived first."""
+        stmt = (
+            select(self.model)
+            .where(self.model.org_id == org_id, self.model.deleted_at.is_not(None))
+            .order_by(self.model.deleted_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
+
+    async def restore(self, db: AsyncSession, obj: ModelT) -> None:
+        """Reverse a soft delete, cascading to children a Campaign owns."""
+        import sqlalchemy as sa
+
+        from app.models import (
+            Campaign,
+            CampaignInfluencer,
+            Deliverable,
+            Insight,
+            Metric,
+            Post,
+        )
+
+        org_id = obj.org_id
+        obj.deleted_at = None
+
+        if isinstance(obj, Campaign):
+            ci_ids = (
+                await db.execute(
+                    sa.select(CampaignInfluencer.id).where(
+                        CampaignInfluencer.campaign_id == obj.id,
+                        CampaignInfluencer.org_id == org_id,
+                    )
+                )
+            ).scalars().all()
+            await db.execute(
+                sa.update(CampaignInfluencer)
+                .where(
+                    CampaignInfluencer.campaign_id == obj.id,
+                    CampaignInfluencer.org_id == org_id,
+                )
+                .values(deleted_at=None)
+            )
+            if ci_ids:
+                for model in (Deliverable, Post, Metric, Insight):
+                    await db.execute(
+                        sa.update(model)
+                        .where(
+                            model.campaign_influencer_id.in_(ci_ids),
+                            model.org_id == org_id,
+                        )
+                        .values(deleted_at=None)
+                    )
 
         await db.flush()

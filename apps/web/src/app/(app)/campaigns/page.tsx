@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Plus, Trash2, Pencil, Download } from "lucide-react";
+import { Plus, Trash2, Pencil, Download, ArchiveRestore, Undo2 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import type { Campaign } from "@/lib/types";
 import { campaignStatusVariant, titleCase } from "@/lib/status";
@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { CampaignForm } from "@/components/campaigns/campaign-form";
 
@@ -21,6 +22,9 @@ export default function CampaignsPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [showForm, setShowForm] = React.useState(false);
   const [editingCampaign, setEditingCampaign] = React.useState<Campaign | null>(null);
+  const [showArchived, setShowArchived] = React.useState(false);
+  const [archived, setArchived] = React.useState<Campaign[] | null>(null);
+  const [loadingArchived, setLoadingArchived] = React.useState(false);
 
   React.useEffect(() => {
     (async () => {
@@ -40,8 +44,45 @@ export default function CampaignsPage() {
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this campaign? It will be archived (soft delete).")) return;
-    await api.campaigns.remove(id);
-    setCampaigns((prev) => prev.filter((c) => c.id !== id));
+    try {
+      await api.campaigns.remove(id);
+      setCampaigns((prev) => prev.filter((c) => c.id !== id));
+    } catch (err) {
+      alert(
+        err instanceof ApiError
+          ? `Could not delete campaign: ${err.message}`
+          : "Could not delete campaign. Please try again.",
+      );
+    }
+  }
+
+  async function toggleArchived() {
+    const next = !showArchived;
+    setShowArchived(next);
+    if (next && archived === null) {
+      setLoadingArchived(true);
+      try {
+        setArchived(await api.campaigns.listArchived());
+      } catch {
+        setArchived([]);
+      } finally {
+        setLoadingArchived(false);
+      }
+    }
+  }
+
+  async function handleRestore(id: string) {
+    try {
+      const restored = await api.campaigns.restore(id);
+      setArchived((prev) => (prev ?? []).filter((c) => c.id !== id));
+      setCampaigns((prev) => [restored, ...prev]);
+    } catch (err) {
+      alert(
+        err instanceof ApiError
+          ? `Could not restore campaign: ${err.message}`
+          : "Could not restore campaign. Please try again.",
+      );
+    }
   }
 
   const columns: ColumnDef<Campaign>[] = [
@@ -114,6 +155,9 @@ export default function CampaignsPage() {
         description="Every initiative your team is running."
         action={
           <div className="flex gap-2">
+            <Button variant="outline" onClick={toggleArchived}>
+              <ArchiveRestore /> {showArchived ? "Hide archived" : "Archived"}
+            </Button>
             <a href={api.reports.exportTrackerUrl()}>
               <Button variant="outline">
                 <Download /> Tracker
@@ -139,6 +183,49 @@ export default function CampaignsPage() {
             emptyMessage="No campaigns yet. Create your first one."
           />
         )}
+
+        {showArchived ? (
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Archived campaigns</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingArchived ? (
+                <p className="text-sm text-muted-foreground">Loading…</p>
+              ) : !archived || archived.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nothing archived. Deleted campaigns show up here and can be
+                  restored.
+                </p>
+              ) : (
+                <div className="divide-y">
+                  {archived.map((c) => (
+                    <div
+                      key={c.id}
+                      className="flex items-center justify-between py-2.5"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium">{c.name}</span>
+                        {c.brand ? (
+                          <span className="text-xs text-muted-foreground">
+                            {c.brand}
+                          </span>
+                        ) : null}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRestore(c.id)}
+                      >
+                        <Undo2 /> Restore
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
 
       <Modal
