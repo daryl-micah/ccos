@@ -3,7 +3,7 @@
 import * as React from "react";
 import { use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Instagram, Youtube } from "lucide-react";
+import { ArrowLeft, Instagram, Pencil, Youtube } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import type {
   Campaign,
@@ -15,8 +15,11 @@ import { ciStatusVariant, titleCase } from "@/lib/status";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Modal } from "@/components/ui/modal";
 import { InstagramCard } from "@/components/influencers/instagram-card";
+import { InfluencerForm } from "@/components/influencers/influencer-form";
 import { YouTubeCard } from "@/components/influencers/youtube-card";
 import {
   Table,
@@ -41,6 +44,7 @@ export default function InfluencerDetailPage({
   const [ytMetrics, setYtMetrics] = React.useState<Metric[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [showEdit, setShowEdit] = React.useState(false);
 
   React.useEffect(() => {
     (async () => {
@@ -98,6 +102,11 @@ export default function InfluencerDetailPage({
         description={
           [influencer.category, influencer.city].filter(Boolean).join(" · ") ||
           undefined
+        }
+        action={
+          <Button variant="outline" onClick={() => setShowEdit(true)}>
+            <Pencil /> Edit
+          </Button>
         }
       />
       <div className="space-y-6 p-8">
@@ -198,6 +207,21 @@ export default function InfluencerDetailPage({
           initialMetrics={ytMetrics}
         />
       </div>
+
+      <Modal
+        open={showEdit}
+        onClose={() => setShowEdit(false)}
+        title="Edit influencer"
+      >
+        <InfluencerForm
+          influencer={influencer}
+          onCancel={() => setShowEdit(false)}
+          onUpdated={(updated) => {
+            setInfluencer(updated);
+            setShowEdit(false);
+          }}
+        />
+      </Modal>
     </>
   );
 }

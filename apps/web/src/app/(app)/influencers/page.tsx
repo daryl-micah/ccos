@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Instagram, Plus, Trash2, Youtube } from "lucide-react";
+import { Instagram, Pencil, Plus, Trash2, Youtube } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import type { Influencer } from "@/lib/types";
 import { PageHeader } from "@/components/layout/page-header";
@@ -19,6 +19,7 @@ export default function InfluencersPage() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [showForm, setShowForm] = React.useState(false);
+  const [editing, setEditing] = React.useState<Influencer | null>(null);
 
   React.useEffect(() => {
     (async () => {
@@ -106,14 +107,24 @@ export default function InfluencersPage() {
       id: "actions",
       header: "",
       cell: ({ row }) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => handleDelete(row.original.id)}
-          aria-label="Delete influencer"
-        >
-          <Trash2 className="text-muted-foreground" />
-        </Button>
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setEditing(row.original)}
+            aria-label="Edit influencer"
+          >
+            <Pencil className="text-muted-foreground" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleDelete(row.original.id)}
+            aria-label="Delete influencer"
+          >
+            <Trash2 className="text-muted-foreground" />
+          </Button>
+        </div>
       ),
     },
   ];
@@ -164,6 +175,25 @@ export default function InfluencersPage() {
             setShowForm(false);
           }}
         />
+      </Modal>
+
+      <Modal
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        title="Edit influencer"
+      >
+        {editing ? (
+          <InfluencerForm
+            influencer={editing}
+            onCancel={() => setEditing(null)}
+            onUpdated={(updated) => {
+              setInfluencers((prev) =>
+                prev.map((i) => (i.id === updated.id ? updated : i)),
+              );
+              setEditing(null);
+            }}
+          />
+        ) : null}
       </Modal>
     </>
   );

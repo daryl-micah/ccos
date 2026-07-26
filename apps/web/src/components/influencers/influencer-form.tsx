@@ -9,14 +9,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 export function InfluencerForm({
+  influencer,
   onCreated,
+  onUpdated,
   onCancel,
 }: {
-  onCreated: (influencer: Influencer) => void;
+  influencer?: Influencer;
+  onCreated?: (influencer: Influencer) => void;
+  onUpdated?: (influencer: Influencer) => void;
   onCancel: () => void;
 }) {
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const isEditing = !!influencer;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -37,11 +42,16 @@ export function InfluencerForm({
       notes: emptyToNull(form.get("notes")),
     };
     try {
-      const created = await api.influencers.create(payload);
-      onCreated(created);
+      if (isEditing && influencer) {
+        const updated = await api.influencers.update(influencer.id, payload);
+        onUpdated?.(updated);
+      } else {
+        const created = await api.influencers.create(payload);
+        onCreated?.(created);
+      }
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to create influencer",
+        err instanceof Error ? err.message : "Failed to save influencer",
       );
     } finally {
       setSaving(false);
@@ -51,45 +61,91 @@ export function InfluencerForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Field label="Name" required>
-        <Input name="name" required placeholder="Anita R" />
+        <Input
+          name="name"
+          required
+          placeholder="Anita R"
+          defaultValue={influencer?.name ?? ""}
+        />
       </Field>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Instagram username">
-          <Input name="instagram_username" placeholder="anita.r" />
+          <Input
+            name="instagram_username"
+            placeholder="anita.r"
+            defaultValue={influencer?.instagram_username ?? ""}
+          />
         </Field>
         <Field label="YouTube channel">
-          <Input name="youtube_channel" placeholder="@AnitaVlogs or UC..." />
+          <Input
+            name="youtube_channel"
+            placeholder="@AnitaVlogs or UC..."
+            defaultValue={influencer?.youtube_channel ?? ""}
+          />
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <Field label="City">
-          <Input name="city" placeholder="Bangalore" />
+          <Input
+            name="city"
+            placeholder="Bangalore"
+            defaultValue={influencer?.city ?? ""}
+          />
         </Field>
         <Field label="Country">
-          <Input name="country" placeholder="India" />
+          <Input
+            name="country"
+            placeholder="India"
+            defaultValue={influencer?.country ?? ""}
+          />
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <Field label="Category">
-          <Input name="category" placeholder="Lifestyle" />
+          <Input
+            name="category"
+            placeholder="Lifestyle"
+            defaultValue={influencer?.category ?? ""}
+          />
         </Field>
         <Field label="Language">
-          <Input name="language" placeholder="English" />
+          <Input
+            name="language"
+            placeholder="English"
+            defaultValue={influencer?.language ?? ""}
+          />
         </Field>
       </div>
       <div className="grid grid-cols-3 gap-4">
         <Field label="Manager">
-          <Input name="manager_name" placeholder="Ravi" />
+          <Input
+            name="manager_name"
+            placeholder="Ravi"
+            defaultValue={influencer?.manager_name ?? ""}
+          />
         </Field>
         <Field label="Email">
-          <Input name="email" type="email" placeholder="anita@example.com" />
+          <Input
+            name="email"
+            type="email"
+            placeholder="anita@example.com"
+            defaultValue={influencer?.email ?? ""}
+          />
         </Field>
         <Field label="Phone">
-          <Input name="phone" placeholder="+91..." />
+          <Input
+            name="phone"
+            placeholder="+91..."
+            defaultValue={influencer?.phone ?? ""}
+          />
         </Field>
       </div>
       <Field label="Notes">
-        <Textarea name="notes" placeholder="Context about this creator..." />
+        <Textarea
+          name="notes"
+          placeholder="Context about this creator..."
+          defaultValue={influencer?.notes ?? ""}
+        />
       </Field>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -99,7 +155,11 @@ export function InfluencerForm({
           Cancel
         </Button>
         <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Create influencer"}
+          {saving
+            ? "Saving…"
+            : isEditing
+              ? "Update influencer"
+              : "Create influencer"}
         </Button>
       </div>
     </form>
