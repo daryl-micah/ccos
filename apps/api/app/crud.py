@@ -259,3 +259,6 @@ class CRUD[ModelT: Base]:
                     )
 
         await db.flush()
+        # ``updated_at`` (onupdate=func.now()) is expired by the flush; reload it
+        # so serializing the restored row doesn't lazy-load outside the session.
+        await db.refresh(obj)
