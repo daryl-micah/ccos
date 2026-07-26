@@ -4,11 +4,13 @@ import type {
   AIStatus,
   Campaign,
   CampaignInfluencer,
+  CampaignInfluencerResults,
   CampaignRanking,
   CreatorRanking,
   Deliverable,
   GroupRanking,
   Influencer,
+  InstagramStatus,
   InstagramSyncResult,
   Metric,
   Post,
@@ -97,6 +99,11 @@ export const api = {
         request<Metric[]>(`/campaigns/${id}/recompute-metrics`, {
           method: "POST",
         }),
+      /** Soft-deleted campaigns, most recently archived first. */
+      listArchived: () => request<Campaign[]>(`/campaigns/archived`),
+      /** Reverse a soft delete, restoring the campaign and its creators/posts. */
+      restore: (id: string) =>
+        request<Campaign>(`/campaigns/${id}/restore`, { method: "POST" }),
       /** Import an agency's creator list (name/contact/handle) into the campaign. */
       importRoster: async (
         campaignId: string,
@@ -160,6 +167,15 @@ export const api = {
         request<Metric[]>(`/campaign-influencers/${id}/recompute-metrics`, {
           method: "POST",
         }),
+      /**
+       * Upsert creator-level revenue & conversion inputs and recompute KPIs.
+       * Returns every CI-level metric (manual results + derived) after the save.
+       */
+      setResults: (id: string, data: CampaignInfluencerResults) =>
+        request<Metric[]>(`/campaign-influencers/${id}/results`, {
+          method: "PUT",
+          body: JSON.stringify(data),
+        }),
     },
   ),
   deliverables: resource<
@@ -188,6 +204,9 @@ export const api = {
     status: () => request<AIStatus>("/ai/status"),
     generateInsights: () =>
       request<AIInsights>("/ai/insights", { method: "POST" }),
+  },
+  instagram: {
+    status: () => request<InstagramStatus>("/instagram/status"),
   },
   youtube: {
     status: () => request<YouTubeStatus>("/youtube/status"),

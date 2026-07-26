@@ -95,6 +95,33 @@ async def list_campaigns(
     )
 
 
+@router.get("/archived", response_model=list[CampaignOut])
+async def list_archived_campaigns(
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
+    skip: int = 0,
+    limit: int = Query(100, le=500),
+):
+    """Soft-deleted campaigns, most recently archived first (for restore)."""
+    return await crud.list_archived(
+        db, org_id=tenant.org_id, skip=skip, limit=limit
+    )
+
+
+@router.post("/{campaign_id}/restore", response_model=CampaignOut)
+async def restore_campaign(
+    campaign_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
+):
+    """Reverse a soft delete, restoring the campaign and its creators/posts."""
+    obj = await crud.get_archived(db, campaign_id, org_id=tenant.org_id)
+    if obj is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Archived campaign not found")
+    await crud.restore(db, obj)
+    return obj
+
+
 @router.post("", response_model=CampaignOut, status_code=status.HTTP_201_CREATED)
 async def create_campaign(
     data: CampaignCreate,

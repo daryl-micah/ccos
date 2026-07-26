@@ -28,6 +28,14 @@ async def _refresh_post_engagement(
         await metric_engine.recompute_post_engagement(db, post_id, org_id)
 
 
+async def _refresh_ci_kpis(
+    db: AsyncSession, ci_id: uuid.UUID | None, org_id: str
+) -> None:
+    """Keep the creator's derived KPIs (CPV, ROAS, …) in step with its metrics."""
+    if ci_id is not None:
+        await metric_engine.recompute_for_ci_id(db, ci_id, org_id)
+
+
 async def _validate_refs(db: AsyncSession, data: MetricCreate, org_id: str) -> None:
     if data.campaign_influencer_id is not None and not await ci_crud.exists(
         db, data.campaign_influencer_id, org_id=org_id
@@ -79,6 +87,7 @@ async def create_metric(
     await _validate_refs(db, data, tenant.org_id)
     obj = await crud.create(db, data, org_id=tenant.org_id)
     await _refresh_post_engagement(db, obj.post_id, obj.metric_name, tenant.org_id)
+    await _refresh_ci_kpis(db, obj.campaign_influencer_id, tenant.org_id)
     return obj
 
 
@@ -108,6 +117,7 @@ async def update_metric(
     await _refresh_post_engagement(
         db, updated.post_id, updated.metric_name, tenant.org_id
     )
+    await _refresh_ci_kpis(db, updated.campaign_influencer_id, tenant.org_id)
     return updated
 
 
@@ -121,5 +131,7 @@ async def delete_metric(
     if obj is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Metric not found")
     post_id, metric_name = obj.post_id, obj.metric_name
+    ci_id = obj.campaign_influencer_id
     await crud.remove(db, obj)
     await _refresh_post_engagement(db, post_id, metric_name, tenant.org_id)
+    await _refresh_ci_kpis(db, ci_id, tenant.org_id)

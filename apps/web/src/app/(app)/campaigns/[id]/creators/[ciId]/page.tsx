@@ -6,12 +6,14 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ExternalLink,
+  Pencil,
   Plus,
   RefreshCw,
   Trash2,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import type {
+  Agency,
   Campaign,
   CampaignInfluencer,
   Deliverable,
@@ -20,7 +22,7 @@ import type {
   Post,
 } from "@/lib/types";
 import { ciStatusVariant, titleCase } from "@/lib/status";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, isOverdue } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +40,8 @@ import { DeliverableForm } from "@/components/creators/deliverable-form";
 import { PostForm } from "@/components/creators/post-form";
 import { PostMetricForm } from "@/components/creators/post-metric-form";
 import { DerivedKpis } from "@/components/creators/derived-kpis";
+import { ResultsForm } from "@/components/creators/results-form";
+import { EditCreatorForm } from "@/components/campaigns/edit-creator-form";
 
 export default function CreatorDetailPage({
   params,
@@ -49,6 +53,8 @@ export default function CreatorDetailPage({
   const [campaign, setCampaign] = React.useState<Campaign | null>(null);
   const [ci, setCi] = React.useState<CampaignInfluencer | null>(null);
   const [influencer, setInfluencer] = React.useState<Influencer | null>(null);
+  const [agencies, setAgencies] = React.useState<Agency[]>([]);
+  const [showEdit, setShowEdit] = React.useState(false);
   const [deliverables, setDeliverables] = React.useState<Deliverable[]>([]);
   const [posts, setPosts] = React.useState<Post[]>([]);
   const [metrics, setMetrics] = React.useState<Metric[]>([]);
@@ -65,18 +71,20 @@ export default function CreatorDetailPage({
       try {
         const link = await api.campaignInfluencers.get(ciId);
         setCi(link);
-        const [c, inf, d, p, m] = await Promise.all([
+        const [c, inf, d, p, m, ag] = await Promise.all([
           api.campaigns.get(id),
           api.influencers.get(link.influencer_id),
           api.deliverables.list({ campaign_influencer_id: ciId, limit: 500 }),
           api.posts.list({ campaign_influencer_id: ciId, limit: 500 }),
           api.metrics.list({ campaign_influencer_id: ciId, limit: 500 }),
+          api.agencies.list(),
         ]);
         setCampaign(c);
         setInfluencer(inf);
         setDeliverables(d);
         setPosts(p);
         setMetrics(m);
+        setAgencies(ag);
       } catch (err) {
         setError(
           err instanceof ApiError
@@ -129,14 +137,41 @@ export default function CreatorDetailPage({
   }
 
   async function deleteDeliverable(deliverableId: string) {
-    await api.deliverables.remove(deliverableId);
-    setDeliverables((prev) => prev.filter((d) => d.id !== deliverableId));
+    if (!confirm("Delete this deliverable? (soft delete)")) return;
+    try {
+      await api.deliverables.remove(deliverableId);
+      setDeliverables((prev) => prev.filter((d) => d.id !== deliverableId));
+    } catch (err) {
+      alert(
+        err instanceof ApiError
+          ? `Could not delete deliverable: ${err.message}`
+          : "Could not delete deliverable. Please try again.",
+      );
+    }
   }
+
+  // Reload every metric for this creator (post-scoped + CI-level derived KPIs).
+  // The backend recomputes KPIs on each change, so a refetch is the simplest
+  // way to reflect them without mirroring the engine in the client.
+  const refreshMetrics = React.useCallback(async () => {
+    setMetrics(
+      await api.metrics.list({ campaign_influencer_id: ciId, limit: 500 }),
+    );
+  }, [ciId]);
 
   async function deletePost(postId: string) {
     if (!confirm("Delete this live post and its metrics? (soft delete)")) return;
-    await api.posts.remove(postId);
-    setPosts((prev) => prev.filter((p) => p.id !== postId));
+    try {
+      await api.posts.remove(postId);
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      await refreshMetrics();
+    } catch (err) {
+      alert(
+        err instanceof ApiError
+          ? `Could not delete post: ${err.message}`
+          : "Could not delete post. Please try again.",
+      );
+    }
   }
 
   async function syncPostMetrics(postId: string) {
@@ -144,24 +179,9 @@ export default function CreatorDetailPage({
     setPostSyncError(null);
     try {
       const res = await api.posts.syncMetrics(postId);
-      const post = posts.find((p) => p.id === postId);
-      const collectorSource = post?.platform === "youtube" ? "youtube" : "instagram";
-      // Replace this post's provider metrics (and the recomputed engagement
-      // rates it returns); manual entries stay.
-      const supersededByName = new Set([
-        "engagement_rate",
-        "engagement_rate_reach",
-      ]);
-      setMetrics((prev) => [
-        ...prev.filter(
-          (m) =>
-            !(
-              m.post_id === postId &&
-              (m.source === collectorSource || supersededByName.has(m.metric_name))
-            ),
-        ),
-        ...res.metrics,
-      ]);
+      // The sync recomputes post engagement and the creator's KPIs server-side;
+      // refetch so both the posts table and Derived KPIs reflect the new data.
+      await refreshMetrics();
       // Reflect the real publish date extracted from the provider.
       if (res.posted_at) {
         setPosts((prev) =>
@@ -205,6 +225,11 @@ export default function CreatorDetailPage({
       <PageHeader
         title={influencer?.name ?? "Creator"}
         description={campaign ? `in ${campaign.name}` : undefined}
+        action={
+          <Button variant="outline" onClick={() => setShowEdit(true)}>
+            <Pencil /> Edit
+          </Button>
+        }
       />
       <div className="space-y-6 p-8">
         <Link
@@ -225,22 +250,24 @@ export default function CreatorDetailPage({
           <Summary label="Live posts">{String(posts.length)}</Summary>
         </div>
 
-        <DerivedKpis
+        {ci.remarks ? (
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Remarks:</span>{" "}
+            {ci.remarks}
+          </p>
+        ) : null}
+
+        <DerivedKpis metrics={metrics} />
+
+        <ResultsForm
           campaignInfluencerId={ciId}
           metrics={metrics}
-          onRecomputed={(calculated) => {
-            const names = new Set(calculated.map((m) => m.metric_name));
+          onSaved={(ciLevel) => {
+            // Replace every CI-level (post_id null) row with the fresh set;
+            // keep post-scoped metrics untouched.
             setMetrics((prev) => [
-              // drop superseded CI-level calculated rows, keep everything else
-              ...prev.filter(
-                (m) =>
-                  !(
-                    m.source === "calculated" &&
-                    !m.post_id &&
-                    names.has(m.metric_name)
-                  ),
-              ),
-              ...calculated,
+              ...prev.filter((m) => m.post_id),
+              ...ciLevel,
             ]);
           }}
         />
@@ -270,15 +297,25 @@ export default function CreatorDetailPage({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {deliverables.map((d) => (
+                  {deliverables.map((d) => {
+                    const overdue = isOverdue(d.due_date, d.status);
+                    return (
                     <TableRow key={d.id}>
                       <TableCell className="font-medium">
                         {titleCase(d.type)}
                       </TableCell>
                       <TableCell>{d.quantity}</TableCell>
-                      <TableCell>{formatDate(d.due_date)}</TableCell>
+                      <TableCell
+                        className={overdue ? "font-medium text-red-700" : undefined}
+                      >
+                        {formatDate(d.due_date)}
+                      </TableCell>
                       <TableCell>
-                        <Badge variant="muted">{titleCase(d.status)}</Badge>
+                        {overdue ? (
+                          <Badge variant="destructive">Overdue</Badge>
+                        ) : (
+                          <Badge variant="muted">{titleCase(d.status)}</Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
@@ -291,7 +328,8 @@ export default function CreatorDetailPage({
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
@@ -422,6 +460,24 @@ export default function CreatorDetailPage({
       </div>
 
       <Modal
+        open={showEdit}
+        onClose={() => setShowEdit(false)}
+        title="Edit creator"
+      >
+        <EditCreatorForm
+          link={ci}
+          agencies={agencies}
+          onCancel={() => setShowEdit(false)}
+          onUpdated={(updated) => {
+            setCi(updated);
+            setShowEdit(false);
+            // cost feeds CPV/ROAS/CPM/CPA — the backend recomputed them.
+            void refreshMetrics();
+          }}
+        />
+      </Modal>
+
+      <Modal
         open={showDeliverable}
         onClose={() => setShowDeliverable(false)}
         title="Add deliverable"
@@ -465,14 +521,9 @@ export default function CreatorDetailPage({
             campaignInfluencerId={ciId}
             postId={metricPost.id}
             onAdded={async () => {
-              // Refetch so the server-recomputed reach-ER (which folds in
-              // manually-entered shares) is reflected, not just the new row.
-              setMetrics(
-                await api.metrics.list({
-                  campaign_influencer_id: ciId,
-                  limit: 500,
-                }),
-              );
+              // Refetch so the server-recomputed rates and creator KPIs (which
+              // fold in the new value) are reflected, not just the new row.
+              await refreshMetrics();
             }}
           />
         ) : null}

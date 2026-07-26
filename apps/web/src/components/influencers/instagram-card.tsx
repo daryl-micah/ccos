@@ -63,6 +63,22 @@ export function InstagramCard({
   const [topPosts, setTopPosts] = React.useState<InstagramPost[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // null = still checking; true/false = whether an IG account is connected
+  // for the workspace (configured by an admin), so we can guide non-technical
+  // users instead of letting Sync fail with raw backend jargon.
+  const [connected, setConnected] = React.useState<boolean | null>(null);
+
+  React.useEffect(() => {
+    if (!instagramUsername) return;
+    let active = true;
+    api.instagram
+      .status()
+      .then((s) => active && setConnected(s.connected))
+      .catch(() => active && setConnected(null));
+    return () => {
+      active = false;
+    };
+  }, [instagramUsername]);
 
   async function sync() {
     setBusy(true);
@@ -82,8 +98,14 @@ export function InstagramCard({
       });
       setTopPosts(r.top_posts);
       setLastSynced(new Date().toISOString());
+      setConnected(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Sync failed.");
+      if (err instanceof ApiError && err.status === 409) {
+        // Not connected — surface guidance, not the raw backend message.
+        setConnected(false);
+      } else {
+        setError(err instanceof ApiError ? err.message : "Sync failed.");
+      }
     } finally {
       setBusy(false);
     }
@@ -97,7 +119,7 @@ export function InstagramCard({
         <CardTitle className="flex items-center gap-2">
           <Instagram className="size-4" /> Instagram
         </CardTitle>
-        {instagramUsername ? (
+        {instagramUsername && connected !== false ? (
           <Button size="sm" onClick={sync} disabled={busy}>
             <RefreshCw /> {busy ? "Syncing…" : "Sync"}
           </Button>
@@ -106,10 +128,19 @@ export function InstagramCard({
       <CardContent>
         {!instagramUsername ? (
           <p className="text-sm text-muted-foreground">
-            No Instagram handle on this influencer. Add{" "}
-            <code className="text-xs">instagram_username</code> to enable
-            collection.
+            No Instagram handle on this creator. Add one on the creator&apos;s
+            profile to enable automatic stats.
           </p>
+        ) : connected === false ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p className="font-medium">Instagram isn&apos;t connected yet</p>
+            <p className="mt-1">
+              Automatic follower and post stats need an Instagram account
+              connected for your workspace. Ask your workspace admin to set it
+              up — once connected, stats sync here automatically. You can still
+              enter numbers by hand in the meantime.
+            </p>
+          </div>
         ) : (
           <>
             {hasData ? (

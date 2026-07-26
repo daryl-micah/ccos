@@ -38,8 +38,16 @@ export default function InfluencersPage() {
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this influencer? It will be archived (soft delete).")) return;
-    await api.influencers.remove(id);
-    setInfluencers((prev) => prev.filter((i) => i.id !== id));
+    try {
+      await api.influencers.remove(id);
+      setInfluencers((prev) => prev.filter((i) => i.id !== id));
+    } catch (err) {
+      alert(
+        err instanceof ApiError
+          ? `Could not delete influencer: ${err.message}`
+          : "Could not delete influencer. Please try again.",
+      );
+    }
   }
 
   const columns: ColumnDef<Influencer>[] = [

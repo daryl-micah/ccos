@@ -76,6 +76,19 @@ export interface CampaignInfluencer extends Timestamped {
   remarks: string | null;
 }
 
+/**
+ * Creator-in-campaign revenue & conversion inputs (manual, CI-level metrics).
+ * A field left `null` clears that metric; omit a field to leave it unchanged.
+ */
+export interface CampaignInfluencerResults {
+  revenue?: string | null;
+  installs?: string | null;
+  leads?: string | null;
+  bookings?: string | null;
+  purchases?: string | null;
+  impressions?: string | null;
+}
+
 export interface Deliverable extends Timestamped {
   campaign_influencer_id: string;
   type: DeliverableType;
@@ -151,6 +164,12 @@ export interface InstagramSyncResult {
   posting_frequency: number;
   top_posts: InstagramPost[];
   metrics: Metric[];
+}
+
+export interface InstagramStatus {
+  connected: boolean;
+  username: string | null;
+  source: string | null;
 }
 
 // --- YouTube (Phase 4) ---

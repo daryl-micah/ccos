@@ -31,3 +31,21 @@ export function formatDate(value: string | null | undefined): string {
     day: "numeric",
   });
 }
+
+/**
+ * A deliverable is overdue when its due date has passed and it hasn't been
+ * posted or completed. Compared at day granularity in the local timezone.
+ */
+export function isOverdue(
+  dueDate: string | null | undefined,
+  status: string,
+): boolean {
+  if (!dueDate) return false;
+  if (status === "posted" || status === "completed") return false;
+  const due = new Date(dueDate);
+  if (Number.isNaN(due.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  return due < today;
+}

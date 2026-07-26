@@ -1014,6 +1014,44 @@ Phased rollout so teams never have to abandon their current workflow.
 
 Running log of scope decisions made during development.
 
+## 2026-07-27
+
+Usability pass for the Marketing Manager persona — six fixes from a usability
+audit, addressing daily-operations gaps:
+
+* **Editable creator-in-campaign** — cost, status, "closed by" agency and
+  remarks can now be edited after a creator is added (pencil action on the
+  campaign creators table + Edit button on the creator page). Previously the
+  only options were add or remove, so changing a negotiated cost or advancing
+  the pipeline meant remove-and-re-add, losing history.
+* **Creator-level revenue & conversions entry** — a "Results & conversions"
+  card on the creator-in-campaign page enters revenue / installs / leads /
+  bookings / purchases / impressions as manual CI-level metrics, so **ROAS,
+  CPA and CPM finally populate**. Backed by `PUT /campaign-influencers/{id}/results`
+  which upserts these and recomputes derived KPIs in one call.
+* **Auto-recompute KPIs** — the manual "Recompute" buttons (campaign detail +
+  Derived KPIs card) are gone. The engine now runs server-side on every input
+  change: metric create/update/delete, post-metric sync, live-post delete, and
+  creator cost edits all call `recompute_for_ci`. Deleting a post now also
+  soft-deletes its metrics (`crud.remove` doesn't cascade from a Post), so
+  stale views/likes no longer skew KPIs.
+* **Attention signals** — overdue deliverables (past due, not posted/completed)
+  show a red "Overdue" badge; a campaign whose committed spend exceeds budget
+  flags "Over by ₹X"; campaign detail shows a "Needs attention" banner
+  summarising both. New `isOverdue` helper + `destructive` badge variant.
+* **Trustworthy soft-delete** — every delete handler now catches errors and
+  alerts instead of rejecting unhandled (the optimistic row-removal only
+  happens on success). Soft-deleted campaigns are recoverable: new
+  `GET /campaigns/archived` + `POST /campaigns/{id}/restore` (cascade-restores
+  creators/deliverables/posts/metrics) behind an "Archived" toggle with
+  per-campaign Restore. `crud.py` uses `from __future__ import annotations` so
+  the new `list[ModelT]` hints don't collide with the `CRUD.list` method name.
+* **Instagram connection clarity** — Instagram is still admin-configured via
+  env (`INSTAGRAM_*`), but the creator card now checks `/instagram/status`,
+  hides Sync when disconnected, and shows a plain "Instagram isn't connected —
+  ask your workspace admin; you can still enter numbers by hand" banner instead
+  of raw backend jargon on failure.
+
 ## 2026-07-14
 
 * **Authentication via Clerk** — The web app (`apps/web`) is gated behind

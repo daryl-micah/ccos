@@ -31,3 +31,18 @@ class CampaignInfluencerUpdate(BaseModel):
 
 class CampaignInfluencerOut(CampaignInfluencerBase, IDTimestamps):
     pass
+
+
+class CampaignInfluencerResults(BaseModel):
+    """Creator-in-campaign conversion & revenue inputs (manual, CI-level).
+
+    These feed the derived-metric engine so ROAS / CPA / CPM populate. Only
+    fields that are present are touched; a present ``null`` clears that metric.
+    """
+
+    revenue: Decimal | None = None
+    installs: Decimal | None = None
+    leads: Decimal | None = None
+    bookings: Decimal | None = None
+    purchases: Decimal | None = None
+    impressions: Decimal | None = None
