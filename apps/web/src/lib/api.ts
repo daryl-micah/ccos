@@ -10,6 +10,7 @@ import type {
   Deliverable,
   GroupRanking,
   Influencer,
+  InstagramStatus,
   InstagramSyncResult,
   Metric,
   Post,
@@ -203,6 +204,9 @@ export const api = {
     status: () => request<AIStatus>("/ai/status"),
     generateInsights: () =>
       request<AIInsights>("/ai/insights", { method: "POST" }),
+  },
+  instagram: {
+    status: () => request<InstagramStatus>("/instagram/status"),
   },
   youtube: {
     status: () => request<YouTubeStatus>("/youtube/status"),

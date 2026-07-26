@@ -166,6 +166,12 @@ export interface InstagramSyncResult {
   metrics: Metric[];
 }
 
+export interface InstagramStatus {
+  connected: boolean;
+  username: string | null;
+  source: string | null;
+}
+
 // --- YouTube (Phase 4) ---
 
 export interface YouTubeStatus {
