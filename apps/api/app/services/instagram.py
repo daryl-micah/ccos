@@ -162,14 +162,14 @@ def get_status() -> dict:
 
     from app.core.config import settings
 
+    if settings.instagram_sessionid:
+        return {"connected": True, "username": None, "source": "env"}
     if settings.instagram_username and settings.instagram_password:
         return {
             "connected": True,
             "username": settings.instagram_username,
             "source": "env",
         }
-    if settings.instagram_sessionid:
-        return {"connected": True, "username": None, "source": "env"}
     return {"connected": False, "username": None, "source": None}
 
 
@@ -181,30 +181,30 @@ def _persist(client, username: str) -> None:
 def _login_from_env(client) -> str:
     """Authenticate ``client`` from env credentials; returns the username.
 
-    Username/password is tried first; on any failure (2FA, challenge, block) it
-    falls back to the ``INSTAGRAM_SESSIONID`` cookie, which is more reliable.
+    The ``INSTAGRAM_SESSIONID`` cookie is tried first (more reliable, no
+    2FA/challenge risk); on any failure it falls back to username/password.
     """
     from app.core.config import settings
 
-    password_error: Exception | None = None
-    if settings.instagram_username and settings.instagram_password:
-        try:
-            client.login(settings.instagram_username, settings.instagram_password)
-            return settings.instagram_username
-        except Exception as exc:  # noqa: BLE001 - fall back to the sessionid
-            password_error = exc
-
+    sessionid_error: Exception | None = None
     if settings.instagram_sessionid:
-        client.login_by_sessionid(settings.instagram_sessionid.strip())
-        return client.username or client.account_info().username
+        try:
+            client.login_by_sessionid(settings.instagram_sessionid.strip())
+            return client.username or client.account_info().username
+        except Exception as exc:  # noqa: BLE001 - fall back to username/password
+            sessionid_error = exc
 
-    if password_error is not None:
+    if settings.instagram_username and settings.instagram_password:
+        client.login(settings.instagram_username, settings.instagram_password)
+        return settings.instagram_username
+
+    if sessionid_error is not None:
         raise NotConnectedError(
-            f"Instagram username/password login failed ({password_error}) and no "
-            "INSTAGRAM_SESSIONID fallback is set."
+            f"Instagram sessionid login failed ({sessionid_error}) and no "
+            "INSTAGRAM_USERNAME/INSTAGRAM_PASSWORD fallback is set."
         )
     raise NotConnectedError(
-        "Set INSTAGRAM_USERNAME/INSTAGRAM_PASSWORD or INSTAGRAM_SESSIONID."
+        "Set INSTAGRAM_SESSIONID or INSTAGRAM_USERNAME/INSTAGRAM_PASSWORD."
     )
 
 
