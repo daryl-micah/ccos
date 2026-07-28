@@ -245,12 +245,36 @@ export const api = {
       }
       return res.json() as Promise<ImportResult>;
     },
+    /** Bulk-create influencers from a pasted list of profile links. */
+    importInfluencerLinks: async (links: string): Promise<LinksImportResult> => {
+      const res = await fetch(`${BASE_URL}/import/influencers/links`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ links }),
+      });
+      if (!res.ok) {
+        let detail = res.statusText;
+        try {
+          detail = (await res.json()).detail ?? detail;
+        } catch {
+          // ignore
+        }
+        throw new ApiError(res.status, detail);
+      }
+      return res.json() as Promise<LinksImportResult>;
+    },
   },
 };
 
 export interface ImportResult {
   created: number;
   created_influencers: Influencer[];
+}
+
+export interface LinksImportResult {
+  created: number;
+  created_influencers: Influencer[];
+  skipped: string[];
 }
 
 export interface RosterImportResult {

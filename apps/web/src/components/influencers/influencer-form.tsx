@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { parseProfileLink } from "@/lib/profile-link";
 
 export function InfluencerForm({
   influencer,
@@ -28,10 +29,26 @@ export function InfluencerForm({
     setSaving(true);
     setError(null);
     const form = new FormData(e.currentTarget);
+    let instagramUsername = emptyToNull(form.get("instagram_username"));
+    let youtubeChannel = emptyToNull(form.get("youtube_channel"));
+    const profileLink = emptyToNull(form.get("profile_link"));
+    if (profileLink) {
+      const parsed = parseProfileLink(profileLink);
+      if (!parsed) {
+        setError("Profile link must be an Instagram or YouTube profile URL.");
+        setSaving(false);
+        return;
+      }
+      if (parsed.field === "instagram_username") {
+        instagramUsername ??= parsed.handle;
+      } else {
+        youtubeChannel ??= parsed.handle;
+      }
+    }
     const payload = {
       name: String(form.get("name")).trim(),
-      instagram_username: emptyToNull(form.get("instagram_username")),
-      youtube_channel: emptyToNull(form.get("youtube_channel")),
+      instagram_username: instagramUsername,
+      youtube_channel: youtubeChannel,
       city: emptyToNull(form.get("city")),
       country: emptyToNull(form.get("country")),
       category: emptyToNull(form.get("category")),
@@ -66,6 +83,12 @@ export function InfluencerForm({
           required
           placeholder="Anita R"
           defaultValue={influencer?.name ?? ""}
+        />
+      </Field>
+      <Field label="Profile link">
+        <Input
+          name="profile_link"
+          placeholder="https://instagram.com/anita.r or https://youtube.com/@AnitaVlogs"
         />
       </Field>
       <div className="grid grid-cols-2 gap-4">

@@ -6,6 +6,8 @@ removing the migration barrier (PRODUCT.md integration phase 1).
 
 import csv
 import io
+import re
+from urllib.parse import urlparse
 
 from openpyxl import load_workbook
 
@@ -35,9 +37,50 @@ FIELD_ALIASES = {
     "contact number": "phone",
     "contact_number": "phone",
     "notes": "notes",
+    # Generic profile-link columns: the URL is parsed to detect the
+    # platform, rather than assumed to be a specific one.
+    "link": "_profile_link",
+    "links": "_profile_link",
+    "profile link": "_profile_link",
+    "profile_link": "_profile_link",
+    "profile url": "_profile_link",
+    "profile_url": "_profile_link",
+    "url": "_profile_link",
+    "social link": "_profile_link",
 }
 
-ALLOWED_FIELDS = set(FIELD_ALIASES.values())
+ALLOWED_FIELDS = {f for f in FIELD_ALIASES.values() if not f.startswith("_")}
+
+_IG_SKIP_SEGMENTS = {"p", "reel", "reels", "stories", "explore", "tv"}
+_YT_PATH_SEGMENTS = {"channel", "c", "user"}
+
+
+def _parse_profile_url(value: str) -> tuple[str, str] | None:
+    """Detect Instagram/YouTube profile links and extract (field, handle)."""
+    text = value.strip()
+    if not text:
+        return None
+    candidate = text if re.match(r"^https?://", text, re.I) else f"https://{text}"
+    try:
+        parsed = urlparse(candidate)
+    except ValueError:
+        return None
+    host = parsed.netloc.lower().removeprefix("www.")
+    segments = [s for s in parsed.path.split("/") if s]
+    if not segments:
+        return None
+    if "instagram.com" in host:
+        handle = segments[0].lstrip("@")
+        if handle.lower() in _IG_SKIP_SEGMENTS:
+            return None
+        return ("instagram_username", handle)
+    if "youtube.com" in host:
+        if segments[0].startswith("@"):
+            return ("youtube_channel", segments[0])
+        if segments[0] in _YT_PATH_SEGMENTS and len(segments) > 1:
+            return ("youtube_channel", segments[1])
+        return None
+    return None
 
 
 def _normalize_row(raw: dict[str, object]) -> dict[str, str]:
@@ -49,9 +92,51 @@ def _normalize_row(raw: dict[str, object]) -> dict[str, str]:
         if not field:
             continue
         text = "" if value is None else str(value).strip()
-        if text:
-            mapped[field] = text
+        if not text:
+            continue
+        if field == "_profile_link":
+            parsed = _parse_profile_url(text)
+            if parsed:
+                mapped.setdefault(*parsed)
+            continue
+        mapped[field] = text
+    # A discrete instagram/youtube column may itself hold a full URL
+    # (e.g. an "instagram link" header) - normalize it to a bare handle.
+    for field in ("instagram_username", "youtube_channel"):
+        if field in mapped:
+            parsed = _parse_profile_url(mapped[field])
+            if parsed:
+                if parsed[0] != field:
+                    del mapped[field]
+                mapped[parsed[0]] = parsed[1]
     return mapped
+
+
+def parse_influencer_links(text: str) -> tuple[list[dict[str, str]], list[str]]:
+    """Parse a pasted list of profile URLs (one per line, or comma-separated).
+
+    Returns (rows, skipped) where each row is a minimal influencer dict
+    (name defaults to the handle) and skipped holds tokens that weren't
+    recognized as an Instagram/YouTube profile link.
+    """
+    rows: list[dict[str, str]] = []
+    skipped: list[str] = []
+    seen: set[str] = set()
+    tokens = [t.strip() for line in text.splitlines() for t in line.split(",")]
+    for token in tokens:
+        if not token:
+            continue
+        parsed = _parse_profile_url(token)
+        if not parsed:
+            skipped.append(token)
+            continue
+        field, handle = parsed
+        key = f"{field}:{handle.lower()}"
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append({"name": handle, field: handle})
+    return rows, skipped
 
 
 def parse_influencer_rows(filename: str, content: bytes) -> list[dict[str, str]]:

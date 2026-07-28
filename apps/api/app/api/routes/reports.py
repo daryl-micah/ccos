@@ -11,7 +11,7 @@ from app.core.database import get_db
 from app.crud import CRUD
 from app.models import Influencer
 from app.schemas.influencer import InfluencerCreate, InfluencerOut
-from app.services.imports import parse_influencer_rows
+from app.services.imports import parse_influencer_links, parse_influencer_rows
 from app.services.reports import (
     build_campaign_creators_report,
     build_campaign_poa_report,
@@ -133,3 +133,35 @@ async def import_influencers(
         for row in rows
     ]
     return ImportResult(created=len(created), created_influencers=created)
+
+
+class LinksImportRequest(BaseModel):
+    links: str
+
+
+class LinksImportResult(BaseModel):
+    created: int
+    created_influencers: list[InfluencerOut]
+    skipped: list[str]
+
+
+@router.post("/import/influencers/links", response_model=LinksImportResult)
+async def import_influencer_links(
+    payload: LinksImportRequest,
+    db: AsyncSession = Depends(get_db),
+    tenant: Tenant = Depends(get_tenant),
+):
+    """Bulk-create influencers from a pasted list of Instagram/YouTube profile links."""
+    rows, skipped = parse_influencer_links(payload.links)
+    if not rows:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "No valid Instagram or YouTube profile links were found.",
+        )
+    created = [
+        await influencer_crud.create(db, InfluencerCreate(**row), org_id=tenant.org_id)
+        for row in rows
+    ]
+    return LinksImportResult(
+        created=len(created), created_influencers=created, skipped=skipped
+    )
