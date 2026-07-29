@@ -232,6 +232,28 @@ export interface GroupRanking {
   category?: string;
 }
 
+// --- Private-beta application ---
+
+export interface BetaApplication {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  status: string;
+}
+
+export interface BetaApplicationCreate {
+  company_name: string;
+  role?: string;
+  team_size?: string;
+  current_workflow?: string;
+  creators_managed?: string;
+  goal?: string;
+  referrer?: string;
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+}
+
 // --- AI insights (Phase 8) ---
 
 export interface AIStatus {

@@ -2,6 +2,8 @@ import type {
   Agency,
   AIInsights,
   AIStatus,
+  BetaApplication,
+  BetaApplicationCreate,
   Campaign,
   CampaignInfluencer,
   CampaignInfluencerResults,
@@ -130,6 +132,14 @@ export const api = {
       },
     },
   ),
+  applications: {
+    submit: (data: BetaApplicationCreate) =>
+      request<BetaApplication>("/applications", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    getMine: () => request<BetaApplication>("/applications/me"),
+  },
   agencies: resource<Agency, Partial<Agency>, Partial<Agency>>("agencies"),
   influencers: Object.assign(
     resource<Influencer, Partial<Influencer>, Partial<Influencer>>(
