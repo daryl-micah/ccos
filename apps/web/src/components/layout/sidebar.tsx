@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { BarChart3, LayoutDashboard, Megaphone, Settings, Users } from "lucide-react";
+import { BarChart3, LayoutDashboard, Megaphone, UserCog, Users } from "lucide-react";
 import { OrganizationSwitcher, UserButton } from "@clerk/nextjs";
 import { cn, focusRing } from "@/lib/utils";
 
@@ -13,7 +13,9 @@ const NAV = [
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/influencers", label: "Influencers", icon: Users },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/settings/team", label: "Team", icon: Settings },
+  // UserCog, not a gear: a gear next to "Team" reads as app settings, and not
+  // Users either — that's the influencer roster two rows up.
+  { href: "/settings/team", label: "Team", icon: UserCog },
 ];
 
 export function Sidebar() {
@@ -38,7 +40,17 @@ export function Sidebar() {
         </Link>
       </div>
       <div className="border-b p-3">
-        <OrganizationSwitcher hidePersonal afterLeaveOrganizationUrl="/apply" />
+        <OrganizationSwitcher
+          hidePersonal
+          afterLeaveOrganizationUrl="/apply"
+          appearance={{
+            elements: {
+              rootBox: "w-full",
+              organizationSwitcherTrigger:
+                "w-full justify-between rounded-md border bg-card px-3 py-2 shadow-sm transition-colors hover:bg-accent",
+            },
+          }}
+        />
       </div>
       <nav className="flex flex-col gap-1 p-3">
         {NAV.map(({ href, label, icon: Icon }) => {
@@ -68,8 +80,17 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div className="mt-auto flex items-center gap-3 border-t p-4">
-        <UserButton showName />
+      <div className="mt-auto border-t p-3">
+        <UserButton
+          showName
+          appearance={{
+            elements: {
+              rootBox: "w-full",
+              userButtonTrigger:
+                "w-full justify-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-accent",
+            },
+          }}
+        />
       </div>
     </aside>
   );
