@@ -10,8 +10,16 @@ export default function TeamSettingsPage() {
         title="Team"
         description="Invite teammates, manage roles, and remove members."
       />
-      <div className="flex justify-center px-8 py-6">
-        <OrganizationProfile routing="hash" />
+      <div className="animate-in fade-in slide-in-from-bottom-2 px-8 py-6 duration-300">
+        <OrganizationProfile
+          routing="hash"
+          appearance={{
+            elements: {
+              rootBox: "w-full",
+              cardBox: "w-full max-w-4xl shadow-sm",
+            },
+          }}
+        />
       </div>
     </>
   );
