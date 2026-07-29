@@ -55,9 +55,7 @@ export function CampaignForm({
         onCreated?.(created);
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to save campaign",
-      );
+      setError(err instanceof Error ? err.message : "Failed to save campaign");
     } finally {
       setSaving(false);
     }
@@ -77,7 +75,7 @@ export function CampaignForm({
         <Field label="Brand">
           <Input
             name="brand"
-            placeholder="Pronto"
+            placeholder="Acme Inc."
             defaultValue={campaign?.brand ?? ""}
           />
         </Field>
@@ -139,7 +137,11 @@ export function CampaignForm({
           Cancel
         </Button>
         <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : isEditing ? "Update campaign" : "Create campaign"}
+          {saving
+            ? "Saving…"
+            : isEditing
+              ? "Update campaign"
+              : "Create campaign"}
         </Button>
       </div>
     </form>
@@ -170,5 +172,3 @@ function emptyToNull(v: FormDataEntryValue | null): string | null {
   const s = v ? String(v).trim() : "";
   return s === "" ? null : s;
 }
-
-
