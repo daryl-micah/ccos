@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "tailwindcss-animate";
 
 @theme inline {
   /* CCOS brand palette — available as bg-/text-/border- utilities. */

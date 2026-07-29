@@ -79,30 +79,40 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="relative grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute -top-24 left-1/4 size-72 rounded-full bg-teal/10 blur-3xl"
+              />
               <StatCard
                 label="Campaigns"
-                value={String(campaigns.length)}
+                value={campaigns.length}
                 hint={`${activeCampaigns} active`}
                 icon={<Megaphone className="size-4" />}
+                accent="teal"
               />
               <StatCard
                 label="Influencers"
-                value={String(influencers.length)}
+                value={influencers.length}
                 hint="In your creator database"
                 icon={<Users className="size-4" />}
+                accent="amber"
               />
               <StatCard
                 label="Total spend"
-                value={formatCurrency(totalSpend)}
+                value={totalSpend}
+                format={formatCurrency}
                 hint="Committed creator cost"
                 icon={<IndianRupee className="size-4" />}
+                accent="orange"
               />
               <StatCard
                 label="ROAS"
-                value={totalRevenue > 0 ? `${roas.toFixed(2)}×` : "—"}
+                value={totalRevenue > 0 ? roas : "—"}
+                format={(n) => `${n.toFixed(2)}×`}
                 hint={`Revenue ${formatCurrency(totalRevenue)}`}
                 icon={<TrendingUp className="size-4" />}
+                accent="navy"
               />
             </div>
 

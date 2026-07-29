@@ -10,7 +10,7 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div>
+    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
       {/* Fixed-height bar so its divider aligns with the sidebar's. */}
       <div className="flex h-16 items-center justify-between gap-4 border-b px-8">
         <h1 className="text-xl font-semibold tracking-tight">{title}</h1>

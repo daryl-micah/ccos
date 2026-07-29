@@ -3,9 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { BarChart3, LayoutDashboard, Megaphone, Users } from "lucide-react";
 import { UserButton } from "@clerk/nextjs";
-import { cn } from "@/lib/utils";
+import { cn, focusRing } from "@/lib/utils";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -18,9 +19,9 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r bg-muted">
+    <aside className="flex w-60 shrink-0 flex-col border-r bg-gradient-to-b from-muted to-background">
       <div className="flex h-16 items-center border-b px-6">
-        <Link href="/dashboard" aria-label="CCOS home">
+        <Link href="/dashboard" aria-label="CCOS home" className={cn("rounded-md", focusRing)}>
           <Image
             src="/logo-wordmark.png"
             alt="CCOS"
@@ -39,14 +40,22 @@ export function Sidebar() {
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors active:scale-[0.98]",
                 active
-                  ? "bg-secondary text-secondary-foreground"
+                  ? "text-secondary-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                focusRing,
               )}
             >
-              <Icon className="size-4" />
-              {label}
+              {active ? (
+                <motion.span
+                  layoutId="sidebar-active"
+                  className="absolute inset-0 rounded-md bg-secondary"
+                  transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                />
+              ) : null}
+              <Icon className="relative size-4" />
+              <span className="relative">{label}</span>
             </Link>
           );
         })}

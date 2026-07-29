@@ -58,7 +58,14 @@ export function SpendChart({ data }: { data: SpendDatum[] }) {
           }
           cursor={{ fill: "#e1eff6" }}
         />
-        <Bar dataKey="spend" fill="#219ebc" radius={[4, 4, 0, 0]} />
+        <Bar
+          dataKey="spend"
+          fill="#219ebc"
+          radius={[4, 4, 0, 0]}
+          activeBar={{ fill: "#fb8500" }}
+          animationDuration={600}
+          animationEasing="ease-out"
+        />
       </BarChart>
     </ResponsiveContainer>
   );
