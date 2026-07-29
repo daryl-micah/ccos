@@ -18,6 +18,33 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { CampaignForm } from "@/components/campaigns/campaign-form";
 
+/** Owner cell: an initials disc reads faster down a column than a name alone. */
+function OwnerCell({ label, assigned }: { label: string; assigned: boolean }) {
+  const initials = label
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+
+  return (
+    <span className="flex items-center gap-2">
+      <span
+        aria-hidden
+        className={
+          assigned
+            ? "flex size-6 shrink-0 items-center justify-center rounded-full bg-teal/10 text-[10px] font-semibold text-teal"
+            : "size-6 shrink-0 rounded-full border border-dashed"
+        }
+      >
+        {assigned ? initials : null}
+      </span>
+      <span className={assigned ? undefined : "text-muted-foreground"}>
+        {label}
+      </span>
+    </span>
+  );
+}
+
 export default function CampaignsPage() {
   const { owner } = useOwnerFilter();
   const { labelFor } = useOrgMembers();
@@ -111,13 +138,10 @@ export default function CampaignsPage() {
       accessorKey: "owner_user_id",
       header: "Owner",
       cell: ({ row }) => (
-        <span
-          className={
-            row.original.owner_user_id ? undefined : "text-muted-foreground"
-          }
-        >
-          {labelFor(row.original.owner_user_id)}
-        </span>
+        <OwnerCell
+          label={labelFor(row.original.owner_user_id)}
+          assigned={Boolean(row.original.owner_user_id)}
+        />
       ),
     },
     {
