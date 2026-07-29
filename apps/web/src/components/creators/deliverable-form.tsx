@@ -6,7 +6,13 @@ import type { Deliverable, DeliverableType } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const TYPES: DeliverableType[] = [
   "reel",
@@ -54,11 +60,16 @@ export function DeliverableForm({
         <div className="space-y-1.5">
           <Label>Type</Label>
           <Select name="type" defaultValue="reel">
-            {TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t.replace("_", " ")}
-              </option>
-            ))}
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TYPES.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t.replace("_", " ")}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
         </div>
         <div className="space-y-1.5">

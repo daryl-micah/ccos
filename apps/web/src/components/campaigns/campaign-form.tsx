@@ -8,7 +8,15 @@ import { useOrgMembers } from "@/lib/use-org-members";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import {
+  NONE,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  selectedOrNull,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 const STATUSES: CampaignStatus[] = ["draft", "active", "completed"];
@@ -30,7 +38,9 @@ export function CampaignForm({
   const { user } = useUser();
   const { members } = useOrgMembers();
   // New campaigns default to the current user; anyone in the org may reassign.
-  const defaultOwner = campaign ? (campaign.owner_user_id ?? "") : (user?.id ?? "");
+  const defaultOwner = campaign
+    ? (campaign.owner_user_id ?? NONE)
+    : (user?.id ?? NONE);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -47,7 +57,7 @@ export function CampaignForm({
         const num = parseFloat(val.replace(/[^0-9.-]/g, ""));
         return isNaN(num) ? null : String(num);
       })(),
-      owner_user_id: emptyToNull(form.get("owner_user_id")),
+      owner_user_id: selectedOrNull(form.get("owner_user_id")),
       status: form.get("status") as CampaignStatus,
       start_date: emptyToNull(form.get("start_date")),
       end_date: emptyToNull(form.get("end_date")),
@@ -106,22 +116,32 @@ export function CampaignForm({
       </Field>
       <Field label="Owner">
         <Select name="owner_user_id" defaultValue={defaultOwner}>
-          <option value="">Unassigned</option>
-          {members.map((m) => (
-            <option key={m.userId} value={m.userId}>
-              {m.label}
-            </option>
-          ))}
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>Unassigned</SelectItem>
+            {members.map((m) => (
+              <SelectItem key={m.userId} value={m.userId}>
+                {m.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       </Field>
       <div className="grid grid-cols-3 gap-4">
         <Field label="Status">
           <Select name="status" defaultValue={campaign?.status ?? "draft"}>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
         </Field>
         <Field label="Start date">

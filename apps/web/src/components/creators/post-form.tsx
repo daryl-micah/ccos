@@ -6,7 +6,15 @@ import type { Deliverable, Platform, Post } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import {
+  NONE,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  selectedOrNull,
+} from "@/components/ui/select";
 
 const PLATFORMS: Platform[] = ["instagram", "youtube", "other"];
 
@@ -35,11 +43,10 @@ export function PostForm({
       setSaving(false);
       return;
     }
-    const deliverableId = String(form.get("deliverable_id"));
     try {
       const created = await api.posts.create({
         campaign_influencer_id: campaignInfluencerId,
-        deliverable_id: deliverableId === "" ? null : deliverableId,
+        deliverable_id: selectedOrNull(form.get("deliverable_id")),
         url,
         platform: form.get("platform") as Platform,
         // posted_at is extracted from Instagram on sync.
@@ -67,11 +74,16 @@ export function PostForm({
       <div className="space-y-1.5">
         <Label>Platform</Label>
         <Select name="platform" defaultValue="instagram">
-          {PLATFORMS.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PLATFORMS.map((p) => (
+              <SelectItem key={p} value={p}>
+                {p}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
           Instagram and YouTube post dates and available metrics are fetched
@@ -80,13 +92,18 @@ export function PostForm({
       </div>
       <div className="space-y-1.5">
         <Label>Linked deliverable (optional)</Label>
-        <Select name="deliverable_id" defaultValue="">
-          <option value="">— none —</option>
-          {deliverables.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.type.replace("_", " ")} ×{d.quantity}
-            </option>
-          ))}
+        <Select name="deliverable_id" defaultValue={NONE}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>— none —</SelectItem>
+            {deliverables.map((d) => (
+              <SelectItem key={d.id} value={d.id}>
+                {d.type.replace("_", " ")} ×{d.quantity}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       </div>
 

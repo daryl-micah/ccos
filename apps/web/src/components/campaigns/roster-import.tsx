@@ -6,7 +6,14 @@ import type { Agency } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import {
+  NONE,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Modal } from "@/components/ui/modal";
 
 const NEW = "__new__";
@@ -23,7 +30,7 @@ export function RosterImportModal({
   onImported: () => void;
 }) {
   const [agencies, setAgencies] = React.useState<Agency[]>([]);
-  const [choice, setChoice] = React.useState<string>(""); // "" = in-house
+  const [choice, setChoice] = React.useState<string>(NONE); // NONE = in-house
   const [newAgency, setNewAgency] = React.useState("");
   const [file, setFile] = React.useState<File | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -56,7 +63,8 @@ export function RosterImportModal({
     setBusy(true);
     setError(null);
     try {
-      let agencyId: string | null = choice === NEW || choice === "" ? null : choice;
+      let agencyId: string | null =
+        choice === NEW || choice === NONE ? null : choice;
       if (choice === NEW) {
         if (!newAgency.trim()) {
           setError("Enter the new agency name.");
@@ -112,14 +120,19 @@ export function RosterImportModal({
 
           <div className="space-y-1.5">
             <Label>Closed by</Label>
-            <Select value={choice} onChange={(e) => setChoice(e.target.value)}>
-              <option value="">In-house (brand team)</option>
-              {agencies.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-              <option value={NEW}>+ New agency…</option>
+            <Select value={choice} onValueChange={setChoice}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>In-house (brand team)</SelectItem>
+                {agencies.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+                <SelectItem value={NEW}>+ New agency…</SelectItem>
+              </SelectContent>
             </Select>
           </div>
 

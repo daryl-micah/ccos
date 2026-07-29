@@ -9,8 +9,76 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+
+const ROLES = [
+  ["founder", "Founder"],
+  ["marketing", "Marketing"],
+  ["influencer_marketing", "Influencer Marketing"],
+  ["agency", "Agency"],
+  ["other", "Other"],
+];
+
+const TEAM_SIZES = [
+  ["1", "1"],
+  ["2-10", "2\u201310"],
+  ["10+", "10+"],
+];
+
+const WORKFLOWS = [
+  ["google_sheets", "Google Sheets"],
+  ["airtable", "Airtable"],
+  ["notion", "Notion"],
+  ["internal_tool", "Internal Tool"],
+  ["other", "Other"],
+];
+
+const CREATORS_MANAGED = [
+  ["<10", "<10"],
+  ["10-50", "10\u201350"],
+  ["50-200", "50\u2013200"],
+  ["200+", "200+"],
+];
+
+/** One labelled dropdown. Every question on this form is the same shape. */
+function Choice({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: string[][];
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue placeholder="Select one\u2026" />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map(([v, l]) => (
+            <SelectItem key={v} value={v}>
+              {l}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
 
 export default function ApplyPage() {
   const router = useRouter();
@@ -74,68 +142,37 @@ export default function ApplyPage() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
-              <Select
-                id="role"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-              >
-                <option value="">Select one…</option>
-                <option value="founder">Founder</option>
-                <option value="marketing">Marketing</option>
-                <option value="influencer_marketing">Influencer Marketing</option>
-                <option value="agency">Agency</option>
-                <option value="other">Other</option>
-              </Select>
-            </div>
+            <Choice
+              id="role"
+              label="Role"
+              value={role}
+              onChange={setRole}
+              options={ROLES}
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="team-size">Team size</Label>
-              <Select
-                id="team-size"
-                value={teamSize}
-                onChange={(e) => setTeamSize(e.target.value)}
-              >
-                <option value="">Select one…</option>
-                <option value="1">1</option>
-                <option value="2-10">2–10</option>
-                <option value="10+">10+</option>
-              </Select>
-            </div>
+            <Choice
+              id="team-size"
+              label="Team size"
+              value={teamSize}
+              onChange={setTeamSize}
+              options={TEAM_SIZES}
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="current-workflow">Current workflow</Label>
-              <Select
-                id="current-workflow"
-                value={currentWorkflow}
-                onChange={(e) => setCurrentWorkflow(e.target.value)}
-              >
-                <option value="">Select one…</option>
-                <option value="google_sheets">Google Sheets</option>
-                <option value="airtable">Airtable</option>
-                <option value="notion">Notion</option>
-                <option value="internal_tool">Internal Tool</option>
-                <option value="other">Other</option>
-              </Select>
-            </div>
+            <Choice
+              id="current-workflow"
+              label="Current workflow"
+              value={currentWorkflow}
+              onChange={setCurrentWorkflow}
+              options={WORKFLOWS}
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="creators-managed">
-                Instagram creators managed
-              </Label>
-              <Select
-                id="creators-managed"
-                value={creatorsManaged}
-                onChange={(e) => setCreatorsManaged(e.target.value)}
-              >
-                <option value="">Select one…</option>
-                <option value="<10">&lt;10</option>
-                <option value="10-50">10–50</option>
-                <option value="50-200">50–200</option>
-                <option value="200+">200+</option>
-              </Select>
-            </div>
+            <Choice
+              id="creators-managed"
+              label="Instagram creators managed"
+              value={creatorsManaged}
+              onChange={setCreatorsManaged}
+              options={CREATORS_MANAGED}
+            />
 
             <div className="space-y-2">
               <Label htmlFor="goal">What are you hoping this fixes?</Label>

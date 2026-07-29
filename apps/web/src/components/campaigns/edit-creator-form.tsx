@@ -10,7 +10,15 @@ import type {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import {
+  NONE,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  selectedOrNull,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
 const STATUSES: CampaignInfluencerStatus[] = [
@@ -43,7 +51,7 @@ export function EditCreatorForm({
     const cost = String(form.get("cost")).trim();
     try {
       const updated = await api.campaignInfluencers.update(link.id, {
-        agency_id: emptyToNull(form.get("agency_id")),
+        agency_id: selectedOrNull(form.get("agency_id")),
         cost: (() => {
           const val = cost.replace(/[^0-9.-]/g, "");
           if (val === "") return null;
@@ -65,13 +73,18 @@ export function EditCreatorForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-1.5">
         <Label>Closed by</Label>
-        <Select name="agency_id" defaultValue={link.agency_id ?? ""}>
-          <option value="">In-house (brand team)</option>
-          {agencies.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
+        <Select name="agency_id" defaultValue={link.agency_id ?? NONE}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>In-house (brand team)</SelectItem>
+            {agencies.map((a) => (
+              <SelectItem key={a.id} value={a.id}>
+                {a.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
         </Select>
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -89,11 +102,16 @@ export function EditCreatorForm({
         <div className="space-y-1.5">
           <Label>Status</Label>
           <Select name="status" defaultValue={link.status}>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
           </Select>
         </div>
       </div>

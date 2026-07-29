@@ -3,15 +3,15 @@
 import { ListFilter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  SelectMenu,
-  SelectMenuContent,
-  SelectMenuGroup,
-  SelectMenuItem,
-  SelectMenuLabel,
-  SelectMenuSeparator,
-  SelectMenuTrigger,
-  SelectMenuValue,
-} from "@/components/ui/select-menu";
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useOrgMembers } from "@/lib/use-org-members";
 import { UNASSIGNED, useOwnerFilter } from "@/lib/use-owner-filter";
 
@@ -25,11 +25,11 @@ export function OwnerFilter() {
   const active = Boolean(owner);
 
   return (
-    <SelectMenu
+    <Select
       value={owner ?? ALL}
       onValueChange={(next) => setOwner(next === ALL ? undefined : next)}
     >
-      <SelectMenuTrigger
+      <SelectTrigger
         size="sm"
         aria-label="Filter by campaign owner"
         className={cn(
@@ -48,24 +48,24 @@ export function OwnerFilter() {
               active ? "text-teal" : "text-muted-foreground",
             )}
           />
-          <SelectMenuValue />
+          <SelectValue />
         </span>
-      </SelectMenuTrigger>
+      </SelectTrigger>
 
-      <SelectMenuContent>
-        <SelectMenuItem value={ALL}>All owners</SelectMenuItem>
-        <SelectMenuSeparator />
-        <SelectMenuGroup>
-          <SelectMenuLabel>Team</SelectMenuLabel>
+      <SelectContent>
+        <SelectItem value={ALL}>All owners</SelectItem>
+        <SelectSeparator />
+        <SelectGroup>
+          <SelectLabel>Team</SelectLabel>
           {members.map((m) => (
-            <SelectMenuItem key={m.userId} value={m.userId}>
+            <SelectItem key={m.userId} value={m.userId}>
               {m.label}
-            </SelectMenuItem>
+            </SelectItem>
           ))}
-        </SelectMenuGroup>
-        <SelectMenuSeparator />
-        <SelectMenuItem value={UNASSIGNED}>Unassigned</SelectMenuItem>
-      </SelectMenuContent>
-    </SelectMenu>
+        </SelectGroup>
+        <SelectSeparator />
+        <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
+      </SelectContent>
+    </Select>
   );
 }
