@@ -1014,6 +1014,107 @@ Phased rollout so teams never have to abandon their current workflow.
 
 Running log of scope decisions made during development.
 
+## 2026-07-29
+
+* **Campaign ownership is a filter, not an access boundary** — Campaigns now
+  carry an `owner_user_id` (Clerk user id) and the app has a global
+  "All owners / <member> / Unassigned" scope selector. Every member of an org
+  still sees every campaign; this answers "show me *my* numbers vs. the
+  team's", not "hide my numbers from my teammates". There is deliberately no
+  permission check on the filter and no private-campaign concept — adding one
+  later means a `campaign_members` table, not a tweak to this.
+
+  **Ownership is deliberately NOT denormalized onto child tables**, which
+  reverses the reasoning behind the `org_id` denormalization in the
+  2026-07-14 entry below. That decision was justified by `org_id` being
+  immutable; ownership is not, so denormalizing it would mean rewriting every
+  `CampaignInfluencer` / `Post` / `Deliverable` / `Metric` row whenever a
+  campaign changes hands. Ownership lives on `Campaign` alone and the child
+  rows are reached through it.
+
+  This stays cheap because `analytics._ci_stats()` is the single chokepoint
+  all four rankings (creators / cities / categories / campaigns) derive from —
+  filtering the campaign set there scopes every ranking with no per-endpoint
+  work. The dashboard, which aggregates client-side from four separate
+  endpoints, narrows campaign-derived rows by id membership in the browser.
+
+  **The influencer roster is explicitly exempt.** It's the shared master list
+  the bulk-import feature exists to populate, so `/influencers` does not show
+  the filter at all — `PageHeader` takes an opt-in `ownerFilter` flag rather
+  than rendering it globally, since a visible control that silently does
+  nothing is worse than no control. The dashboard's "Influencers" stat stays
+  org-wide for the same reason (its hint already reads "In your creator
+  database").
+
+  Selection lives in a `?owner=` URL param, not React state: it survives
+  refresh, makes a filtered view shareable, and needs no state library (the
+  app has none). Sidebar nav links carry the param forward, without which the
+  filter resets on every navigation and stops being "app-wide" in practice.
+  `"unassigned"` is a first-class filter value for campaigns predating the
+  column — existing rows were left unassigned rather than backfilled to
+  whoever ran the migration. It required adding `CRUD.list(extra_where=...)`,
+  because the existing `filters` dict reads `None` as "no filter" and so can't
+  express `IS NULL`. Team member names come from Clerk's
+  `useOrganization({ memberships: true })` — no roster endpoint of our own.
+
+* **Gated private-beta onboarding — approval *is* organization creation** —
+  Access is no longer self-serve. New flow: landing page → Clerk sign-up →
+  a one-screen application form (`/apply`) → `/pending` → manual approval →
+  app. This **reverses** the "users are forced into an org right after
+  sign-up" part of the 2026-07-14 multi-tenancy decision below: a user now
+  signs up with *no* organization and stays that way until approved.
+
+  The gate needs no new enforcement code. `get_tenant` (`app/core/auth.py`)
+  already 403s any request without an active org, and `api_router` applies it
+  globally, so withholding the Clerk Organization until approval means a
+  pending user can hold a valid session and still reach zero data. Approving
+  someone = creating their org (named from the application's company field,
+  with them as admin). Consequently **`/onboarding` is removed** — users no
+  longer create their own workspaces, which also ends the org-sprawl risk of
+  opening trials to the internet.
+
+  `proxy.ts` becomes a three-way gate: `orgId` → app; no org +
+  `publicMetadata.status === "pending"` → `/pending`; otherwise → `/apply`.
+  This requires adding `publicMetadata` to the Clerk session-token claims
+  (dashboard config), and must use `publicMetadata` rather than
+  `unsafeMetadata`, which is browser-writable.
+
+  **`BetaApplication` is the one model that does not use `OrgScopedMixin`** —
+  an applicant has no org yet. It keys on `clerk_user_id` and is stamped with
+  `org_id` at approval. Its route therefore cannot be mounted on `api_router`
+  (which requires `get_tenant`); it hangs off `app` directly in `main.py` and
+  depends only on `get_current_claims`. Referrer/UTM are captured on the row —
+  with trial traffic arriving from the internet, channel attribution is worth
+  more than any single form answer.
+
+  Form: company name (required, becomes the org name), role, team size,
+  current workflow, Instagram creators managed, and one free-text "what are
+  you hoping this fixes" — the only question that distinguishes a real user
+  from a curious one. Everything but company name is optional; one screen, not
+  a wizard, so the "30 seconds" promise holds. No "rejected" status in v1 —
+  unapproved applications simply stay pending.
+
+  Approval runs as a CLI command in `app/cli.py` (which already exists for
+  Heroku Scheduler) rather than an admin UI, and the approval email is sent by
+  hand — no transactional-email provider is being added yet, and at private-
+  beta volume a personal email is the point of collecting this context.
+
+  Landing-page CTA changes from "Start free" to **"Join the Private Beta"**,
+  backed by a line stating that teams are onboarded manually — otherwise the
+  framing reads as "unfinished" rather than scarce. Deliberately a single CTA:
+  no separate email-capture waitlist alongside sign-up, which would split
+  conversion and create two pools of people to manage.
+
+* **Team invitations use Clerk's prebuilt components** — Adding teammates to a
+  workspace is `<OrganizationProfile />` on a `/settings/team` page plus
+  `<OrganizationSwitcher hidePersonal>` in the sidebar. Invites, role changes,
+  removal and the invitation emails are all Clerk's; no API work, since the
+  backend only ever reads `org_id` off the token. Invitees land on
+  `/sign-up?__clerk_ticket=…` (already a public route) with the org active, so
+  they skip the application gate entirely — approval is per-workspace, not per
+  person. Switching orgs must trigger a `router.refresh()`, or client-cached
+  data from the previous org leaks into the new org's views.
+
 ## 2026-07-28
 
 * **Public marketing landing page at `/`** — CCOS now has a marketing front
