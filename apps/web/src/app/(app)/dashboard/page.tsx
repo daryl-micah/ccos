@@ -7,6 +7,7 @@ import { api, ApiError } from "@/lib/api";
 import type { Campaign, CampaignInfluencer, Influencer, Metric } from "@/lib/types";
 import { campaignStatusVariant, titleCase } from "@/lib/status";
 import { formatCurrency } from "@/lib/utils";
+import { useOwnerFilter } from "@/lib/use-owner-filter";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { SpendChart, type SpendDatum } from "@/components/dashboard/spend-chart";
@@ -14,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export default function DashboardPage() {
+  const { owner } = useOwnerFilter();
   const [campaigns, setCampaigns] = React.useState<Campaign[]>([]);
   const [influencers, setInfluencers] = React.useState<Influencer[]>([]);
   const [links, setLinks] = React.useState<CampaignInfluencer[]>([]);
@@ -25,15 +27,30 @@ export default function DashboardPage() {
     (async () => {
       try {
         const [c, i, l, m] = await Promise.all([
-          api.campaigns.list({ limit: 500 }),
+          api.campaigns.list({ limit: 500, owner }),
           api.influencers.list({ limit: 500 }),
           api.campaignInfluencers.list({ limit: 500 }),
           api.metrics.list({ limit: 500 }),
         ]);
+        // Only campaigns carry an owner, so the campaign-derived rows are
+        // narrowed here by membership rather than by their own API filter.
+        // The influencer roster stays org-wide — it's shared by design.
+        const campaignIds = new Set(c.map((x) => x.id));
+        const scopedLinks = owner
+          ? l.filter((x) => campaignIds.has(x.campaign_id))
+          : l;
+        const linkIds = new Set(scopedLinks.map((x) => x.id));
+        const scopedMetrics = owner
+          ? m.filter(
+              (x) =>
+                x.campaign_influencer_id !== null &&
+                linkIds.has(x.campaign_influencer_id),
+            )
+          : m;
         setCampaigns(c);
         setInfluencers(i);
-        setLinks(l);
-        setMetrics(m);
+        setLinks(scopedLinks);
+        setMetrics(scopedMetrics);
       } catch (err) {
         setError(
           err instanceof ApiError
@@ -44,7 +61,7 @@ export default function DashboardPage() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [owner]);
 
   const totalSpend = links.reduce((sum, l) => sum + Number(l.cost ?? 0), 0);
   const totalRevenue = metrics
@@ -71,7 +88,11 @@ export default function DashboardPage() {
 
   return (
     <>
-      <PageHeader title="Dashboard" description="Your campaigns at a glance." />
+      <PageHeader
+        title="Dashboard"
+        ownerFilter
+        description="Your campaigns at a glance."
+      />
       <div className="space-y-6 p-8">
         {error ? (
           <p className="text-sm text-destructive">{error}</p>

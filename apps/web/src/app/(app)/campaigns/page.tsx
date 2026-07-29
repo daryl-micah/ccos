@@ -8,6 +8,7 @@ import { api, ApiError } from "@/lib/api";
 import type { Campaign } from "@/lib/types";
 import { campaignStatusVariant, titleCase } from "@/lib/status";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { useOwnerFilter } from "@/lib/use-owner-filter";
 import { PageHeader } from "@/components/layout/page-header";
 import { DataTable } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ import { Modal } from "@/components/ui/modal";
 import { CampaignForm } from "@/components/campaigns/campaign-form";
 
 export default function CampaignsPage() {
+  const { owner } = useOwnerFilter();
   const [campaigns, setCampaigns] = React.useState<Campaign[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -29,7 +31,7 @@ export default function CampaignsPage() {
   React.useEffect(() => {
     (async () => {
       try {
-        setCampaigns(await api.campaigns.list());
+        setCampaigns(await api.campaigns.list({ owner }));
       } catch (err) {
         setError(
           err instanceof ApiError
@@ -40,7 +42,7 @@ export default function CampaignsPage() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [owner]);
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this campaign? It will be archived (soft delete).")) return;
@@ -152,6 +154,7 @@ export default function CampaignsPage() {
     <>
       <PageHeader
         title="Campaigns"
+        ownerFilter
         description="Every initiative your team is running."
         action={
           <div className="flex gap-2">

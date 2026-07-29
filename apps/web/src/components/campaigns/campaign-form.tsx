@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useOrganization, useUser } from "@clerk/nextjs";
 import { api } from "@/lib/api";
 import type { Campaign, CampaignStatus } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,10 @@ export function CampaignForm({
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const isEditing = !!campaign;
+  const { user } = useUser();
+  const { memberships } = useOrganization({ memberships: true });
+  // New campaigns default to the current user; anyone in the org may reassign.
+  const defaultOwner = campaign ? (campaign.owner_user_id ?? "") : (user?.id ?? "");
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -41,6 +46,7 @@ export function CampaignForm({
         const num = parseFloat(val.replace(/[^0-9.-]/g, ""));
         return isNaN(num) ? null : String(num);
       })(),
+      owner_user_id: emptyToNull(form.get("owner_user_id")),
       status: form.get("status") as CampaignStatus,
       start_date: emptyToNull(form.get("start_date")),
       end_date: emptyToNull(form.get("end_date")),
@@ -96,6 +102,16 @@ export function CampaignForm({
           placeholder="Drive app installs in Bangalore"
           defaultValue={campaign?.objective ?? ""}
         />
+      </Field>
+      <Field label="Owner">
+        <Select name="owner_user_id" defaultValue={defaultOwner}>
+          <option value="">Unassigned</option>
+          {memberships?.data?.map((m) => (
+            <option key={m.id} value={m.publicUserData?.userId ?? ""}>
+              {m.publicUserData?.firstName || m.publicUserData?.identifier}
+            </option>
+          ))}
+        </Select>
       </Field>
       <div className="grid grid-cols-3 gap-4">
         <Field label="Status">

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { BarChart3, LayoutDashboard, Megaphone, Settings, Users } from "lucide-react";
 import { OrganizationSwitcher, UserButton } from "@clerk/nextjs";
@@ -18,6 +18,10 @@ const NAV = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  // Carry the owner filter across navigation, or it silently resets on every
+  // page change and stops feeling app-wide (see lib/use-owner-filter.ts).
+  const owner = useSearchParams().get("owner");
+  const suffix = owner ? `?owner=${encodeURIComponent(owner)}` : "";
 
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r bg-gradient-to-b from-muted to-background">
@@ -42,7 +46,7 @@ export function Sidebar() {
           return (
             <Link
               key={href}
-              href={href}
+              href={`${href}${suffix}`}
               className={cn(
                 "relative flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors active:scale-[0.98]",
                 active

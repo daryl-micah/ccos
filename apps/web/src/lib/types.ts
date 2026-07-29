@@ -37,6 +37,8 @@ interface Timestamped {
 
 export interface Campaign extends Timestamped {
   name: string;
+  /** Clerk user id of the owner; null = unassigned (predates ownership). */
+  owner_user_id: string | null;
   brand: string | null;
   objective: string | null;
   budget: string | null;

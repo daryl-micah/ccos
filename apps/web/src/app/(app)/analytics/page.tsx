@@ -9,6 +9,7 @@ import type {
   GroupRanking,
 } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
+import { useOwnerFilter } from "@/lib/use-owner-filter";
 import { PageHeader } from "@/components/layout/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,7 @@ function cpv(v: number | null): string {
 
 export default function AnalyticsPage() {
   const [creators, setCreators] = React.useState<CreatorRanking[]>([]);
+  const { owner } = useOwnerFilter();
   const [cities, setCities] = React.useState<GroupRanking[]>([]);
   const [categories, setCategories] = React.useState<GroupRanking[]>([]);
   const [campaigns, setCampaigns] = React.useState<CampaignRanking[]>([]);
@@ -45,10 +47,10 @@ export default function AnalyticsPage() {
     (async () => {
       try {
         const [cr, ci, ca, cp] = await Promise.all([
-          api.analytics.creators(),
-          api.analytics.cities(),
-          api.analytics.categories(),
-          api.analytics.campaigns(),
+          api.analytics.creators(owner),
+          api.analytics.cities(owner),
+          api.analytics.categories(owner),
+          api.analytics.campaigns(owner),
         ]);
         setCreators(cr);
         setCities(ci);
@@ -64,7 +66,7 @@ export default function AnalyticsPage() {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [owner]);
 
   const bestCampaign = campaigns.find((c) => c.roas !== null) ?? null;
   const topCreator = creators.find((c) => c.roas !== null) ?? null;
@@ -77,6 +79,7 @@ export default function AnalyticsPage() {
     <>
       <PageHeader
         title="Analytics"
+        ownerFilter
         description="Cross-campaign performance intelligence."
       />
       <div className="space-y-6 p-8">

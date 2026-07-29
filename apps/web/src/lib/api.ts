@@ -204,11 +204,16 @@ export const api = {
     },
   ),
   metrics: resource<Metric, Partial<Metric>, Partial<Metric>>("metrics"),
+  // `owner` is a Clerk user id, or "unassigned"; omit for all owners.
   analytics: {
-    creators: () => request<CreatorRanking[]>("/analytics/creators"),
-    cities: () => request<GroupRanking[]>("/analytics/cities"),
-    categories: () => request<GroupRanking[]>("/analytics/categories"),
-    campaigns: () => request<CampaignRanking[]>("/analytics/campaigns"),
+    creators: (owner?: string) =>
+      request<CreatorRanking[]>(`/analytics/creators${qs({ owner })}`),
+    cities: (owner?: string) =>
+      request<GroupRanking[]>(`/analytics/cities${qs({ owner })}`),
+    categories: (owner?: string) =>
+      request<GroupRanking[]>(`/analytics/categories${qs({ owner })}`),
+    campaigns: (owner?: string) =>
+      request<CampaignRanking[]>(`/analytics/campaigns${qs({ owner })}`),
   },
   ai: {
     status: () => request<AIStatus>("/ai/status"),
