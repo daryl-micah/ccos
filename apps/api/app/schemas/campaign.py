@@ -19,11 +19,13 @@ class CampaignBase(BaseModel):
 
 
 class CampaignCreate(CampaignBase):
-    pass
+    # Omit to default to the caller (see routes/campaigns.py).
+    owner_user_id: str | None = None
 
 
 class CampaignUpdate(BaseModel):
     name: str | None = None
+    owner_user_id: str | None = None
     brand: str | None = None
     objective: str | None = None
     budget: Decimal | None = None
@@ -34,4 +36,4 @@ class CampaignUpdate(BaseModel):
 
 
 class CampaignOut(CampaignBase, IDTimestamps):
-    pass
+    owner_user_id: str | None = None

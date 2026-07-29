@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import Tenant, get_tenant
 from app.core.database import get_db
-from app.crud import CRUD
+from app.crud import CRUD, owner_where
 from app.models import Agency, Campaign
 from app.schemas.campaign import CampaignCreate, CampaignOut, CampaignUpdate
 from app.schemas.influencer import InfluencerOut
@@ -89,9 +89,17 @@ async def list_campaigns(
     skip: int = 0,
     limit: int = Query(100, le=500),
     status: str | None = None,
+    owner: str | None = Query(
+        None, description='Clerk user id, or "unassigned"; omit for all owners'
+    ),
 ):
     return await crud.list(
-        db, org_id=tenant.org_id, skip=skip, limit=limit, filters={"status": status}
+        db,
+        org_id=tenant.org_id,
+        skip=skip,
+        limit=limit,
+        filters={"status": status},
+        extra_where=owner_where(Campaign, owner),
     )
 
 
@@ -128,6 +136,9 @@ async def create_campaign(
     db: AsyncSession = Depends(get_db),
     tenant: Tenant = Depends(get_tenant),
 ):
+    # Default ownership to whoever created it; the form can override.
+    if data.owner_user_id is None:
+        data = data.model_copy(update={"owner_user_id": tenant.user_id})
     return await crud.create(db, data, org_id=tenant.org_id)
 
 

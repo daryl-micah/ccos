@@ -7,12 +7,27 @@ Soft-delete aware: list/get ignore rows with ``deleted_at`` set, and
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.base import Base
+
+# Filter value meaning "rows with no owner" — Clerk user ids are always
+# "user_..." so this can't collide with a real one. Needed because the
+# ``filters`` dict below treats None as "no filter", not "IS NULL".
+UNASSIGNED = "unassigned"
+
+
+def owner_where(model, owner: str | None) -> list[ColumnElement[bool]]:
+    """Where-clauses for an ``owner_user_id`` filter (None = no filter)."""
+    if owner is None:
+        return []
+    if owner == UNASSIGNED:
+        return [model.owner_user_id.is_(None)]
+    return [model.owner_user_id == owner]
 
 
 class CRUD[ModelT: Base]:
@@ -43,6 +58,7 @@ class CRUD[ModelT: Base]:
         skip: int = 0,
         limit: int = 100,
         filters: dict | None = None,
+        extra_where: Sequence[ColumnElement[bool]] = (),
     ) -> list[ModelT]:
         stmt = select(self.model).where(
             self.model.org_id == org_id, self.model.deleted_at.is_(None)
@@ -50,6 +66,8 @@ class CRUD[ModelT: Base]:
         for field, value in (filters or {}).items():
             if value is not None:
                 stmt = stmt.where(getattr(self.model, field) == value)
+        for clause in extra_where:
+            stmt = stmt.where(clause)
         stmt = stmt.order_by(self.model.created_at.desc()).offset(skip).limit(limit)
         result = await db.execute(stmt)
         return list(result.scalars().all())

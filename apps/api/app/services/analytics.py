@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.crud import owner_where
 from app.models import Campaign, CampaignInfluencer, Influencer, Metric
 from app.models.enums import MetricSource
 
@@ -41,9 +42,16 @@ def _avg(values: list[float]) -> float | None:
     return round(sum(values) / len(values), 4) if values else None
 
 
-async def _ci_stats(db: AsyncSession, org_id: str) -> tuple[
+async def _ci_stats(db: AsyncSession, org_id: str, owner: str | None = None) -> tuple[
     dict, dict[str, Influencer], dict[str, Campaign], dict[str, _CiStats]
 ]:
+    """Load the org's working set. ``owner`` narrows it to one user's campaigns.
+
+    This is the single chokepoint every ranking below derives from, so
+    filtering the campaign set here scopes all of them. Ownership lives only
+    on Campaign (see models/campaign.py), hence the filter is applied to
+    campaigns and then propagated to their campaign_influencers.
+    """
     cis = list(
         await db.scalars(
             select(CampaignInfluencer).where(
@@ -64,10 +72,14 @@ async def _ci_stats(db: AsyncSession, org_id: str) -> tuple[
         str(c.id): c
         for c in await db.scalars(
             select(Campaign).where(
-                Campaign.org_id == org_id, Campaign.deleted_at.is_(None)
+                Campaign.org_id == org_id,
+                Campaign.deleted_at.is_(None),
+                *owner_where(Campaign, owner),
             )
         )
     }
+    if owner is not None:
+        cis = [ci for ci in cis if str(ci.campaign_id) in campaigns]
     metrics = list(
         await db.scalars(
             select(Metric).where(
@@ -114,8 +126,10 @@ class _Agg:
     rates: list = field(default_factory=list)
 
 
-async def creator_rankings(db: AsyncSession, org_id: str) -> list[dict]:
-    cis, influencers, _campaigns, stats = await _ci_stats(db, org_id)
+async def creator_rankings(
+    db: AsyncSession, org_id: str, owner: str | None = None
+) -> list[dict]:
+    cis, influencers, _campaigns, stats = await _ci_stats(db, org_id, owner)
     agg: dict[str, _Agg] = defaultdict(_Agg)
     for ci in cis:
         s = stats[str(ci.id)]
@@ -150,8 +164,10 @@ async def creator_rankings(db: AsyncSession, org_id: str) -> list[dict]:
     return rows
 
 
-async def _group_by(db: AsyncSession, org_id: str, key: str) -> list[dict]:
-    cis, influencers, _campaigns, stats = await _ci_stats(db, org_id)
+async def _group_by(
+    db: AsyncSession, org_id: str, key: str, owner: str | None = None
+) -> list[dict]:
+    cis, influencers, _campaigns, stats = await _ci_stats(db, org_id, owner)
     agg: dict[str, _Agg] = defaultdict(_Agg)
     for ci in cis:
         s = stats[str(ci.id)]
@@ -181,16 +197,22 @@ async def _group_by(db: AsyncSession, org_id: str, key: str) -> list[dict]:
     return rows
 
 
-async def city_rankings(db: AsyncSession, org_id: str) -> list[dict]:
-    return await _group_by(db, org_id, "city")
+async def city_rankings(
+    db: AsyncSession, org_id: str, owner: str | None = None
+) -> list[dict]:
+    return await _group_by(db, org_id, "city", owner)
 
 
-async def category_rankings(db: AsyncSession, org_id: str) -> list[dict]:
-    return await _group_by(db, org_id, "category")
+async def category_rankings(
+    db: AsyncSession, org_id: str, owner: str | None = None
+) -> list[dict]:
+    return await _group_by(db, org_id, "category", owner)
 
 
-async def campaign_rankings(db: AsyncSession, org_id: str) -> list[dict]:
-    cis, _influencers, campaigns, stats = await _ci_stats(db, org_id)
+async def campaign_rankings(
+    db: AsyncSession, org_id: str, owner: str | None = None
+) -> list[dict]:
+    cis, _influencers, campaigns, stats = await _ci_stats(db, org_id, owner)
     agg: dict[str, _Agg] = defaultdict(_Agg)
     for ci in cis:
         s = stats[str(ci.id)]
