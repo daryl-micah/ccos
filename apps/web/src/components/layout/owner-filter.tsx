@@ -5,7 +5,10 @@ import { cn } from "@/lib/utils";
 import {
   SelectMenu,
   SelectMenuContent,
+  SelectMenuGroup,
   SelectMenuItem,
+  SelectMenuLabel,
+  SelectMenuSeparator,
   SelectMenuTrigger,
   SelectMenuValue,
 } from "@/components/ui/select-menu";
@@ -27,33 +30,40 @@ export function OwnerFilter() {
       onValueChange={(next) => setOwner(next === ALL ? undefined : next)}
     >
       <SelectMenuTrigger
+        size="sm"
         aria-label="Filter by campaign owner"
         className={cn(
-          "h-8 w-auto min-w-44 text-xs",
+          "min-w-44",
           // A filtered view hides rows, so the control has to look switched on.
           active && "border-teal bg-teal/10 font-medium text-navy",
         )}
       >
+        {/* Grouped, or the trigger's justify-between pushes the icon and the
+            label to opposite ends. */}
         <span className="flex min-w-0 items-center gap-2">
           <ListFilter
             aria-hidden
             className={cn(
-              "size-3.5 shrink-0",
+              "size-3.5",
               active ? "text-teal" : "text-muted-foreground",
             )}
           />
-          <span className="truncate">
-            <SelectMenuValue />
-          </span>
+          <SelectMenuValue />
         </span>
       </SelectMenuTrigger>
-      <SelectMenuContent className="text-xs">
+
+      <SelectMenuContent>
         <SelectMenuItem value={ALL}>All owners</SelectMenuItem>
-        {members.map((m) => (
-          <SelectMenuItem key={m.userId} value={m.userId}>
-            {m.label}
-          </SelectMenuItem>
-        ))}
+        <SelectMenuSeparator />
+        <SelectMenuGroup>
+          <SelectMenuLabel>Team</SelectMenuLabel>
+          {members.map((m) => (
+            <SelectMenuItem key={m.userId} value={m.userId}>
+              {m.label}
+            </SelectMenuItem>
+          ))}
+        </SelectMenuGroup>
+        <SelectMenuSeparator />
         <SelectMenuItem value={UNASSIGNED}>Unassigned</SelectMenuItem>
       </SelectMenuContent>
     </SelectMenu>
