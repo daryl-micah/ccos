@@ -9,8 +9,8 @@ ARG NEXT_PUBLIC_API_URL=/api/v1
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ARG NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
 ARG NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
-ARG NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/
-ARG NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/
+ARG NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/dashboard
+ARG NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/dashboard
 # Docker build context is the repo root, so pnpm installs the full workspace
 # and `next` is hoisted to /app/node_modules. Let next.config.ts pin the
 # Turbopack root to the monorepo root (do NOT set NEXT_ISOLATED_BUILD here).

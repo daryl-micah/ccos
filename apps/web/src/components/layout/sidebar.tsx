@@ -8,7 +8,7 @@ import { UserButton } from "@clerk/nextjs";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/influencers", label: "Influencers", icon: Users },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
@@ -20,7 +20,7 @@ export function Sidebar() {
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r bg-muted">
       <div className="flex h-16 items-center border-b px-6">
-        <Link href="/" aria-label="CCOS home">
+        <Link href="/dashboard" aria-label="CCOS home">
           <Image
             src="/logo-wordmark.png"
             alt="CCOS"
@@ -33,8 +33,7 @@ export function Sidebar() {
       </div>
       <nav className="flex flex-col gap-1 p-3">
         {NAV.map(({ href, label, icon: Icon }) => {
-          const active =
-            href === "/" ? pathname === "/" : pathname.startsWith(href);
+          const active = pathname.startsWith(href);
           return (
             <Link
               key={href}

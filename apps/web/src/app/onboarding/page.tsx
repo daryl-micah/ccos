@@ -5,8 +5,8 @@ export default function OnboardingPage() {
     <div className="flex min-h-screen flex-col items-center justify-center gap-4">
       <OrganizationList
         hidePersonal
-        afterCreateOrganizationUrl="/"
-        afterSelectOrganizationUrl="/"
+        afterCreateOrganizationUrl="/dashboard"
+        afterSelectOrganizationUrl="/dashboard"
       />
     </div>
   );

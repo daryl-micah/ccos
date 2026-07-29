@@ -8,6 +8,9 @@ const isPublicRoute = createRouteMatcher([
   "/terms-of-service",
 ]);
 
+// The marketing landing page. Public, but signed-in users are sent straight
+// into the app so "/" never shows them the pitch for a product they own.
+const isLandingRoute = createRouteMatcher(["/"]);
 const isOnboardingRoute = createRouteMatcher(["/onboarding"]);
 const isApiRoute = createRouteMatcher(["/api(.*)"]);
 
@@ -16,6 +19,13 @@ const isApiRoute = createRouteMatcher(["/api(.*)"]);
 // every API query is org-scoped (app/core/auth.py rejects requests with no
 // org_id). API routes are left alone here; they return their own 401/403.
 export default clerkMiddleware(async (auth, request) => {
+  if (isLandingRoute(request)) {
+    const { userId, orgId } = await auth();
+    if (!userId) return;
+    return NextResponse.redirect(
+      new URL(orgId ? "/dashboard" : "/onboarding", request.url),
+    );
+  }
   if (isPublicRoute(request)) return;
 
   const { orgId } = await auth.protect();
@@ -25,7 +35,7 @@ export default clerkMiddleware(async (auth, request) => {
     return NextResponse.redirect(new URL("/onboarding", request.url));
   }
   if (orgId && isOnboardingRoute(request)) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 });
 

@@ -1014,6 +1014,29 @@ Phased rollout so teams never have to abandon their current workflow.
 
 Running log of scope decisions made during development.
 
+## 2026-07-28
+
+* **Public marketing landing page at `/`** — CCOS now has a marketing front
+  door. `/` is a public, statically-rendered landing page (hero, before/after
+  problem framing drawn from the Problem Statement above, four alternating
+  feature sections with CSS-only product mocks, a "who it's for" section
+  covering the three Target Users and their pain points, the design principles,
+  the Excel in/out story, and a closing CTA). Primary CTA is self-serve
+  sign-up; secondary is sign-in.
+
+  This moved the app: **the dashboard is now `/dashboard`**, not `/`
+  (`app/(app)/page.tsx` → `app/(app)/dashboard/page.tsx`). `proxy.ts` treats
+  `/` as public but bounces signed-in users to `/dashboard` (or `/onboarding`
+  when they have no active org), so the pitch never shows to someone who
+  already owns the product. Sidebar nav, the onboarding
+  `afterCreate/afterSelectOrganizationUrl`, and the Clerk
+  `*_FALLBACK_REDIRECT_URL` values (`.env.local`, `.env.example`, `Dockerfile`
+  ARGs, `docker-compose.yml`, `deploy.yml`) all point at `/dashboard`.
+
+  Landing-page copy is deliberately positioned per Product Scope: campaign
+  operations + influencer CRM + performance intelligence, explicitly **not**
+  an influencer discovery / HypeAuditor alternative.
+
 ## 2026-07-27
 
 Usability pass for the Marketing Manager persona — six fixes from a usability
