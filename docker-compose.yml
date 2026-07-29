@@ -26,7 +26,9 @@ services:
       # Requests now go same-origin through the Next BFF, so CORS is effectively
       # unused; kept correct as belt-and-suspenders.
       CORS_ORIGINS: https://ccos.darylmicah.me
-      ENV: production
+      # development, not production: local Docker Postgres has no SSL, and
+      # ENV=production forces db_connect_args to require it (config.py).
+      ENV: development
       # Verifies Clerk session JWTs (JWKS fetch) - see app/core/auth.py.
       # Missing this produces an empty "Bearer " Authorization header, which
       # httpx rejects (LocalProtocolError) on every authenticated request.
