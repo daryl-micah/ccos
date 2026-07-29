@@ -196,7 +196,7 @@ export default function LandingPage() {
               href="/sign-up"
               className={`rounded-md bg-navy px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-navy/90 ${focusRing}`}
             >
-              Start free
+              Join the Private Beta
             </Link>
           </div>
         </div>
@@ -227,7 +227,7 @@ export default function LandingPage() {
                 href="/sign-up"
                 className={`inline-flex h-11 items-center gap-2 rounded-md bg-amber px-6 text-sm font-semibold text-navy transition-colors hover:bg-orange ${focusRing} focus-visible:ring-offset-navy`}
               >
-                Start free
+                Join the Private Beta
                 <ArrowRight className="size-4" />
               </Link>
               <Link
@@ -413,7 +413,7 @@ export default function LandingPage() {
               href="/sign-up"
               className={`inline-flex h-11 items-center gap-2 rounded-md bg-amber px-6 text-sm font-semibold text-navy transition-colors hover:bg-orange ${focusRing} focus-visible:ring-offset-navy`}
             >
-              Start free
+              Join the Private Beta
               <ArrowRight className="size-4" />
             </Link>
             <Link
