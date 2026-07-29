@@ -13,6 +13,8 @@
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
@@ -49,6 +51,8 @@
   --foreground: #023047; /* Navy for readable text */
   --card: #ffffff; /* pure white, lifts above the tinted background */
   --card-foreground: #023047;
+  --popover: #ffffff; /* floating surfaces: dropdowns, menus */
+  --popover-foreground: #023047;
   --muted: #e1eff6; /* pale sky — subtle surfaces + sidebar */
   --muted-foreground: #486b7a;
   --border: #a9d6e9; /* light sky-blue for visible edges */
