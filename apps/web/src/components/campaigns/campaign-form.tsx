@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { useOrganization, useUser } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { api } from "@/lib/api";
 import type { Campaign, CampaignStatus } from "@/lib/types";
+import { useOrgMembers } from "@/lib/use-org-members";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +28,7 @@ export function CampaignForm({
   const [error, setError] = React.useState<string | null>(null);
   const isEditing = !!campaign;
   const { user } = useUser();
-  const { memberships } = useOrganization({ memberships: true });
+  const { members } = useOrgMembers();
   // New campaigns default to the current user; anyone in the org may reassign.
   const defaultOwner = campaign ? (campaign.owner_user_id ?? "") : (user?.id ?? "");
 
@@ -106,9 +107,9 @@ export function CampaignForm({
       <Field label="Owner">
         <Select name="owner_user_id" defaultValue={defaultOwner}>
           <option value="">Unassigned</option>
-          {memberships?.data?.map((m) => (
-            <option key={m.id} value={m.publicUserData?.userId ?? ""}>
-              {m.publicUserData?.firstName || m.publicUserData?.identifier}
+          {members.map((m) => (
+            <option key={m.userId} value={m.userId}>
+              {m.label}
             </option>
           ))}
         </Select>

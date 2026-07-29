@@ -8,6 +8,7 @@ import { api, ApiError } from "@/lib/api";
 import type { Campaign } from "@/lib/types";
 import { campaignStatusVariant, titleCase } from "@/lib/status";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { useOrgMembers } from "@/lib/use-org-members";
 import { useOwnerFilter } from "@/lib/use-owner-filter";
 import { PageHeader } from "@/components/layout/page-header";
 import { DataTable } from "@/components/data-table";
@@ -19,6 +20,7 @@ import { CampaignForm } from "@/components/campaigns/campaign-form";
 
 export default function CampaignsPage() {
   const { owner } = useOwnerFilter();
+  const { labelFor } = useOrgMembers();
   const [campaigns, setCampaigns] = React.useState<Campaign[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -104,6 +106,19 @@ export default function CampaignsPage() {
       accessorKey: "brand",
       header: "Brand",
       cell: ({ row }) => row.original.brand ?? "—",
+    },
+    {
+      accessorKey: "owner_user_id",
+      header: "Owner",
+      cell: ({ row }) => (
+        <span
+          className={
+            row.original.owner_user_id ? undefined : "text-muted-foreground"
+          }
+        >
+          {labelFor(row.original.owner_user_id)}
+        </span>
+      ),
     },
     {
       accessorKey: "status",
