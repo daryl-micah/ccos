@@ -4,8 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { BarChart3, LayoutDashboard, Megaphone, Users } from "lucide-react";
-import { UserButton } from "@clerk/nextjs";
+import { BarChart3, LayoutDashboard, Megaphone, Settings, Users } from "lucide-react";
+import { OrganizationSwitcher, UserButton } from "@clerk/nextjs";
 import { cn, focusRing } from "@/lib/utils";
 
 const NAV = [
@@ -13,6 +13,7 @@ const NAV = [
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/influencers", label: "Influencers", icon: Users },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/settings/team", label: "Team", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -31,6 +32,9 @@ export function Sidebar() {
             className="h-7 w-auto"
           />
         </Link>
+      </div>
+      <div className="border-b p-3">
+        <OrganizationSwitcher hidePersonal afterLeaveOrganizationUrl="/apply" />
       </div>
       <nav className="flex flex-col gap-1 p-3">
         {NAV.map(({ href, label, icon: Icon }) => {
