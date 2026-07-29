@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.api.routes import beta_applications
 from app.core.config import settings
 
 app = FastAPI(
@@ -25,3 +26,9 @@ async def health() -> dict[str, str]:
 
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)
+
+# Outside api_router: an applicant has no org yet, so api_router's blanket
+# get_tenant dependency would 403 every request before it reached here.
+app.include_router(
+    beta_applications.router, prefix=settings.api_v1_prefix, tags=["applications"]
+)
