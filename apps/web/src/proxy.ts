@@ -11,30 +11,42 @@ const isPublicRoute = createRouteMatcher([
 // The marketing landing page. Public, but signed-in users are sent straight
 // into the app so "/" never shows them the pitch for a product they own.
 const isLandingRoute = createRouteMatcher(["/"]);
-const isOnboardingRoute = createRouteMatcher(["/onboarding"]);
+const isApplyRoute = createRouteMatcher(["/apply"]);
+const isPendingRoute = createRouteMatcher(["/pending"]);
 const isApiRoute = createRouteMatcher(["/api(.*)"]);
 
-// No "personal" ungrouped mode (PRODUCT.md) — every signed-in user must
-// belong to an active Clerk Organization before reaching the app, since
-// every API query is org-scoped (app/core/auth.py rejects requests with no
-// org_id). API routes are left alone here; they return their own 401/403.
+// Access is gated behind manual approval (PRODUCT.md, "Gated private-beta
+// onboarding — approval is organization creation"): a signed-up user has no
+// org until approved, and approving *is* creating their org. So the only
+// signal this middleware needs is orgId (app) vs. publicMetadata.status
+// (pending vs. needs to apply) — there's no self-serve org creation left to
+// gate. API routes are left alone here; they return their own 401/403.
 export default clerkMiddleware(async (auth, request) => {
   if (isLandingRoute(request)) {
     const { userId, orgId } = await auth();
     if (!userId) return;
     return NextResponse.redirect(
-      new URL(orgId ? "/dashboard" : "/onboarding", request.url),
+      new URL(orgId ? "/dashboard" : "/apply", request.url),
     );
   }
   if (isPublicRoute(request)) return;
 
-  const { orgId } = await auth.protect();
+  const { orgId, sessionClaims } = await auth.protect();
   if (isApiRoute(request)) return;
 
-  if (!orgId && !isOnboardingRoute(request)) {
-    return NextResponse.redirect(new URL("/onboarding", request.url));
+  const isPending = sessionClaims?.publicMetadata?.status === "pending";
+
+  if (!orgId) {
+    if (isPending && !isPendingRoute(request)) {
+      return NextResponse.redirect(new URL("/pending", request.url));
+    }
+    if (!isPending && !isApplyRoute(request)) {
+      return NextResponse.redirect(new URL("/apply", request.url));
+    }
+    return;
   }
-  if (orgId && isOnboardingRoute(request)) {
+
+  if (isApplyRoute(request) || isPendingRoute(request)) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 });
